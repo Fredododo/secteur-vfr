@@ -61,10 +61,12 @@ Générées à chaque relevé à partir de `carte_template.html` :
 - `carte.html` contient le relevé : fichier autonome, à ouvrir par double-clic ou à partager ;
 - `index.html` lit `latest.json` à côté d'elle : version à héberger (GitHub Pages).
 
-Dans la page : sommet (site, coordonnées décimales ou DMS, ou clic sur la carte), axe (degrés ou « viser un point »),
-ouverture, rayon, jour (dans la fenêtre du relevé), créneau (SR−30 / SS+30 au sommet par défaut), plancher max.
-Filtres (plancher ≥ FL, zones W et D, pays, catégories), clic = toutes les zones du point, liste cliquable,
-export OpenAir avec cercles et arcs natifs, deux boutons : « Zones affichées (après filtres) » et
+La page a quatre onglets :
+- **Secteur** : sommet (site, coordonnées décimales ou DMS, ou clic sur la carte), axe (degrés ou « viser un point »),
+  ouverture, rayon, jour (dans la fenêtre du relevé), créneau (SR−30 / SS+30 au sommet par défaut) ;
+- **Affichage** : fond de carte, filtres (plancher ≥ FL, catégories, zones W et D, pays) ;
+- **Zones** : liste cliquable des zones affichées (clic sur la carte = toutes les zones du point) ;
+- **Export** : OpenAir avec cercles et arcs natifs, deux boutons : « Zones affichées (après filtres) » et
 « Toutes les zones du secteur » (sans filtres, plancher < FL115, suffixe `_complet`).
 Vérifié le 20/10/2026 : mêmes zones et créneaux que `zones_secteur.py --releve` (Jeufosse, 21/10).
 

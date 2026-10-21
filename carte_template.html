@@ -72,7 +72,7 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 .leaflet-popup-content{margin:12px 14px}
 /* Onglets : barre collee en haut du panneau pendant le defilement */
 [hidden]{display:none!important}
-.tabs{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;
+.tabs{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;
   background:var(--panel);margin:0 -2px;padding:8px 2px 6px;border-bottom:1px solid var(--line)}
 .tabs button{font:600 14px var(--f-ui);color:var(--muted);background:none;border:0;border-bottom:3px solid transparent;
   padding:6px 4px;cursor:pointer;display:inline-flex;justify-content:center;align-items:center;gap:6px}
@@ -126,6 +126,7 @@ body.collapsed #panel{display:none}
     <button type="button" role="tab" id="t-secteur" aria-controls="p-secteur" data-tab="secteur">Secteur</button>
     <button type="button" role="tab" id="t-affichage" aria-controls="p-affichage" data-tab="affichage">Affichage</button>
     <button type="button" role="tab" id="t-zones" aria-controls="p-zones" data-tab="zones">Zones <span class="badge" id="badge"></span></button>
+    <button type="button" role="tab" id="t-export" aria-controls="p-export" data-tab="export">Export</button>
   </nav>
 
   <section role="tabpanel" id="p-secteur" aria-labelledby="t-secteur" class="tabp">
@@ -170,16 +171,9 @@ body.collapsed #panel{display:none}
 
   <section role="tabpanel" id="p-affichage" aria-labelledby="t-affichage" class="tabp" hidden>
   <fieldset>
-    <legend>Options d'affichage et d'export</legend>
+    <legend>Options d'affichage</legend>
     <div id="opts" class="opts"></div>
     <div class="hint">Ces options s'appliquent à la carte, à la liste des zones et à l'export « Zones affichées ».</div>
-  </fieldset>
-  <fieldset>
-    <legend>Export OpenAir</legend>
-    <div class="tools">
-      <button type="button" class="btn" id="dlAff">Zones affichées (après filtres) <em id="nAff"></em></button>
-      <button type="button" class="btn" id="dlComplet">Toutes les zones du secteur <em id="nTout"></em></button>
-    </div>
   </fieldset>
   </section>
 
@@ -189,6 +183,19 @@ body.collapsed #panel{display:none}
     <div class="summary" id="summary"></div>
     <div class="hint" id="filtres"></div>
     <div id="list"></div>
+  </fieldset>
+  </section>
+
+  <section role="tabpanel" id="p-export" aria-labelledby="t-export" class="tabp" hidden>
+  <fieldset>
+    <legend>Export OpenAir</legend>
+    <div class="tools">
+      <button type="button" class="btn" id="dlAff">Zones affichées (après filtres) <em id="nAff"></em></button>
+      <button type="button" class="btn" id="dlComplet">Toutes les zones du secteur <em id="nTout"></em></button>
+    </div>
+    <div class="hint">« Zones affichées » reprend exactement la carte (options de l'onglet Affichage) ; « Toutes les zones
+      du secteur » ignore les filtres. Fichier .txt au format OpenAir (XCTrack, FlySkyHy, SeeYou…), cercles et arcs
+      d'origine conservés.</div>
   </fieldset>
   </section>
 
@@ -557,7 +564,7 @@ $("axe").addEventListener("change",()=>{ window._target=null; });
 $("form").addEventListener("submit",e=>{ e.preventDefault(); compute(); setTab("zones"); });
 
 /* ---------- Onglets ---------- */
-const TABS=["secteur","affichage","zones"];
+const TABS=["secteur","affichage","zones","export"];
 function setTab(name, focus){
   if(!TABS.includes(name)) name="secteur";
   for(const t of TABS){ const on=t===name, b=$("t-"+t);
