@@ -1,0 +1,14 @@
+# Caches telecharges (PDF des SUP, bases OpenAir) : recrees automatiquement
+cache/
+
+# Resultats locaux des calculs de secteur
+resultats*/
+ZRT_Crucey_openair.txt
+
+# Releves : produits par l'Action GitHub, pas par ce PC
+releves/
+
+# Python
+__pycache__/
+*.pyc
+*.tmp

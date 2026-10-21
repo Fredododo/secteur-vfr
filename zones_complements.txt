@@ -1,0 +1,45 @@
+* ============================================================
+* Complements OpenAir OFFICIELS (recopies de l'AIP), prioritaires sur les bases planeur-net et LVZC.
+* Pour les zones absentes de ces bases (au-dessus du FL095, en mer...).
+* Chaque zone indique son pays (* Pays : …, comme le pays du NOTAM) et sa source avec sa date de validite.
+* Une zone n'est reprise que pour un NOTAM du meme pays. A mettre a jour a chaque cycle AIRAC.
+* ============================================================
+
+* TSA26A - ARDENNES 01
+* Pays : Belgique
+* Source : AIP Belgique ENR 5.2 (eAIP skeyes), valide a partir du 01 OCT 2026
+* Premier niveau utilisable FL100. Activation annoncee par NOTAM (Steenokkerzeel ATCC).
+AC R
+AN TSA26A ARDENNES 01
+AL FL95
+AH UNL
+DP 49:58:54 N 005:42:41 E
+DP 49:47:35 N 005:42:37 E
+DP 49:41:37 N 005:16:24 E
+DP 49:40:30 N 005:11:33 E
+DP 49:40:40 N 004:50:55 E
+DP 49:49:20 N 004:18:30 E
+DP 49:58:35 N 004:08:53 E
+DP 50:08:53 N 004:10:28 E
+DP 50:32:05 N 004:06:55 E
+DP 50:33:35 N 004:12:14 E
+DP 50:38:13 N 004:36:20 E
+DP 50:35:19 N 004:50:40 E
+DP 50:01:18 N 005:42:41 E
+
+* EBR17D - LOMBARDSIJDE SECTOR DELTA
+* Pays : Belgique
+* Source : AIP Belgique ENR 5.1 (eAIP skeyes), valide a partir du 01 OCT 2026
+* Entrainement drones militaires BVLOS, entree interdite aux non-participants. Activation par NOTAM (Oostende ATC).
+* Limites : 510907N 0024349E - 511015N 0023959E puis arc horaire de 2,5 NM centre sur 510919N 0024340E
+*           - 511055N 0024645E - 511008N 0024631E - 510907N 0024349E
+AC R
+AN EBR17D LOMBARDSIJDE SECTOR DELTA
+AL SFC
+AH 500FT AMSL
+DP 51:09:07 N 002:43:49 E
+DP 51:10:15 N 002:39:59 E
+V D=+
+V X=51:09:19 N 002:43:40 E
+DB 51:10:15 N 002:39:59 E, 51:10:55 N 002:46:45 E
+DP 51:10:08 N 002:46:31 E

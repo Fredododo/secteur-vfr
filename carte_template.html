@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Secteur VFR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+/* Mise en page : panneau de preparation a gauche (en haut sur telephone), carte plein cadre a droite.
+   Palette des cartes VFR : encre marine, magenta des zones reglementees, ambre des avertissements, fond papier. */
+:root{
+  --paper:#f4f5f2; --panel:#ffffff; --ink:#14233a; --muted:#5b6778; --line:#d9dde3;
+  --navy:#0b4f8a; --magenta:#b0186a; --amber:#c87a00; --violet:#6b3fb5; --grey:#7c8590;
+  --ok:#1d7a46; --warn:#a85a00; --focus:#0b4f8a;
+  --f-ui:"IBM Plex Sans Condensed","Arial Narrow",Arial,sans-serif;
+  --f-data:"IBM Plex Mono",Consolas,"Courier New",monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0f1520; --panel:#161e2b; --ink:#e3e8ef; --muted:#9aa6b6; --line:#2a3546;
+  --navy:#6fb0ee; --magenta:#ee5aa8; --amber:#f0a83a; --violet:#a98af0; --grey:#8d97a5;
+  --ok:#57c38a; --warn:#f0a83a; --focus:#6fb0ee; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0f1520; --panel:#161e2b; --ink:#e3e8ef; --muted:#9aa6b6; --line:#2a3546;
+  --navy:#6fb0ee; --magenta:#ee5aa8; --amber:#f0a83a; --violet:#a98af0; --grey:#8d97a5;
+  --ok:#57c38a; --warn:#f0a83a; --focus:#6fb0ee; color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--paper);color:var(--ink);font:14px/1.4 var(--f-ui);display:flex;overflow:hidden}
+#panel{width:360px;flex:0 0 360px;height:100%;overflow-y:auto;background:var(--panel);border-right:1px solid var(--line);
+  padding-block:0 24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:16px;display:flex;flex-direction:column;gap:14px}
+#map{flex:1 1 auto;height:100%;min-width:0}
+h1{font-size:20px;font-weight:700;margin:0;padding-top:14px;letter-spacing:.01em;text-wrap:balance}
+h1 small{display:block;font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.snap{font:12px/1.35 var(--f-data);color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:6px 8px}
+.snap.old{color:var(--warn);border-color:var(--warn)}
+fieldset{border:0;border-top:1px solid var(--line);margin:0;padding:10px 0 0;display:grid;gap:8px}
+legend{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding:0 6px 0 0}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+label.f{display:grid;gap:3px;font-size:12px;color:var(--muted);min-width:0}
+input,select,button{font:inherit;color:var(--ink)}
+input[type=text],input[type=number],input[type=date],input[type=time],select{
+  width:100%;min-width:0;background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:6px 7px;font-family:var(--f-data);font-size:13px}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+.btn{border:1px solid var(--line);background:var(--paper);border-radius:4px;padding:6px 10px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--navy)}
+.btn.on{background:var(--navy);border-color:var(--navy);color:var(--panel)}
+.btn em{font-style:normal;font-family:var(--f-data);color:var(--muted);margin-left:4px}
+.btn.primary{background:var(--magenta);border-color:var(--magenta);color:#fff;font-weight:600;padding:8px 12px}
+.btn.primary:hover{filter:brightness(1.08)}
+.tools{display:flex;flex-wrap:wrap;gap:6px}
+.hint{font-size:12px;color:var(--muted)}
+.summary{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600;border:1px solid currentColor}
+.chip.act{color:var(--magenta)} .chip.sup{color:var(--violet)} .chip.inf{color:var(--grey)}
+#list{display:grid;gap:2px;font-size:13px}
+.z{display:grid;grid-template-columns:8px 1fr auto;gap:8px;align-items:start;padding:6px 4px;border-radius:4px;cursor:pointer;background:none;border:0;text-align:left;width:100%}
+.z:hover{background:var(--paper)}
+.z i{width:8px;height:100%;min-height:30px;border-radius:2px}
+.z b{font-weight:600;display:block}
+.z span{color:var(--muted);font-size:12px;font-family:var(--f-data)}
+.z em{font-style:normal;font-family:var(--f-data);font-size:12px;color:var(--muted);white-space:nowrap}
+.legal{font-size:11px;color:var(--muted)}
+/* Carte */
+.leaflet-container{background:var(--paper);font:13px var(--f-ui)}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--panel);color:var(--ink)}
+.leaflet-popup-content{margin:12px 14px}
+/* Onglets : barre collee en haut du panneau pendant le defilement */
+[hidden]{display:none!important}
+.tabs{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;
+  background:var(--panel);margin:0 -2px;padding:8px 2px 6px;border-bottom:1px solid var(--line)}
+.tabs button{font:600 14px var(--f-ui);color:var(--muted);background:none;border:0;border-bottom:3px solid transparent;
+  padding:6px 4px;cursor:pointer;display:inline-flex;justify-content:center;align-items:center;gap:6px}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--magenta)}
+.tabs button:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.badge{font:500 11px var(--f-data);background:var(--magenta);color:#fff;border-radius:999px;padding:1px 6px;min-width:1.6em}
+.badge:empty{display:none}
+.tabp{display:grid;gap:14px}
+body.collapsed #panel{display:none}
+.paneltoggle{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:6px 10px;
+  font:600 13px var(--f-ui);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.paneltoggle:hover{border-color:var(--navy)}
+.paneltoggle:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+.opts{display:grid;gap:6px;font-size:13px}
+.opt{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;cursor:pointer}
+.opt span{min-width:0}
+.opt em{font-style:normal;font-family:var(--f-data);font-size:12px;color:var(--muted);text-align:right}
+.opt input[type=number]{width:64px;padding:3px 6px}
+.opt input[type=checkbox]{margin:0}
+.optgrp{display:grid;gap:4px;padding-left:2px}
+.optgrp>span{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.leaflet-interactive:focus{outline:none}
+.pop .t{font-size:15px;font-weight:700} .pop .s{color:var(--muted);font-weight:500}
+.pop .alt{margin:4px 0;font-family:var(--f-data);font-size:12px}
+.pop .sl{font-family:var(--f-data);font-weight:600}
+.pop .cat{color:var(--violet);font-size:12px}
+.pop .info{font-size:12px;margin-top:3px}
+.pop .muted{color:var(--muted)}
+.pop .tel{font-family:var(--f-data);user-select:all}
+.pop details{font-size:12px;margin-top:6px}
+.pop pre{white-space:pre-wrap;max-width:440px;max-height:200px;overflow:auto;font:11px/1.35 var(--f-data);background:var(--paper);padding:6px;border-radius:4px}
+.mode-tip{position:absolute;z-index:1000;top:calc(10px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);
+  background:var(--navy);color:var(--panel);padding:6px 12px;border-radius:4px;font-weight:600}
+@media (max-width:760px){
+  /* Telephone : panneau en haut avec son propre defilement (onglets toujours visibles), carte en dessous */
+  body{flex-direction:column}
+  #panel{width:auto;flex:0 0 auto;height:auto;max-height:55%;border-right:0;border-bottom:1px solid var(--line);
+    padding-right:max(16px,env(safe-area-inset-right,0px))}
+  #map{flex:1 1 auto;height:auto;min-height:0}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<aside id="panel">
+  <h1><small>Préparation VFR</small>Zones actives dans un secteur</h1>
+  <div id="snap" class="snap">Chargement du relevé…</div>
+
+  <nav class="tabs" role="tablist" aria-label="Préparation">
+    <button type="button" role="tab" id="t-secteur" aria-controls="p-secteur" data-tab="secteur">Secteur</button>
+    <button type="button" role="tab" id="t-affichage" aria-controls="p-affichage" data-tab="affichage">Affichage</button>
+    <button type="button" role="tab" id="t-zones" aria-controls="p-zones" data-tab="zones">Zones <span class="badge" id="badge"></span></button>
+  </nav>
+
+  <section role="tabpanel" id="p-secteur" aria-labelledby="t-secteur" class="tabp">
+  <form id="form" autocomplete="off">
+    <fieldset>
+      <legend>Sommet</legend>
+      <label class="f">Site
+        <select id="site"><option value="">Coordonnées libres</option></select>
+      </label>
+      <div class="row">
+        <label class="f">Latitude <input id="lat" type="text" value="49.0361" placeholder="49.0361 ou 490210N"></label>
+        <label class="f">Longitude <input id="lon" type="text" value="1.5394" placeholder="1.5394 ou 0013222E"></label>
+      </div>
+      <div class="tools"><button type="button" class="btn" id="pickApex">Placer le sommet sur la carte</button></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Axe et secteur</legend>
+      <div class="row3">
+        <label class="f">Axe (° vrai) <input id="axe" type="number" min="0" max="360" step="0.1" value="221.3"></label>
+        <label class="f">Ouverture (°) <input id="ouv" type="number" min="1" max="360" step="1" value="30"></label>
+        <label class="f">Rayon (km) <input id="ray" type="number" min="10" max="1000" step="10" value="400"></label>
+      </div>
+      <div class="tools"><button type="button" class="btn" id="pickTarget">Viser un point sur la carte</button></div>
+      <div class="hint" id="axeHint"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Jour et créneau (UTC)</legend>
+      <div class="row3" style="grid-template-columns:1.35fr 1fr 1fr">
+        <label class="f">Jour <select id="jour"></select></label>
+        <label class="f">Début <input id="deb" type="time"></label>
+        <label class="f">Fin <input id="fin" type="time"></label>
+      </div>
+      <div class="hint" id="sunHint"></div>
+      <div class="hint">Zones retenues : plancher sous le FL115 (limite fixe du relevé).</div>
+    </fieldset>
+
+    <button class="btn primary" type="submit">Calculer le secteur</button>
+  </form>
+  </section>
+
+  <section role="tabpanel" id="p-affichage" aria-labelledby="t-affichage" class="tabp" hidden>
+  <fieldset>
+    <legend>Options d'affichage et d'export</legend>
+    <div id="opts" class="opts"></div>
+    <div class="hint">Ces options s'appliquent à la carte, à la liste des zones et à l'export « Zones affichées ».</div>
+  </fieldset>
+  <fieldset>
+    <legend>Export OpenAir</legend>
+    <div class="tools">
+      <button type="button" class="btn" id="dlAff">Zones affichées (après filtres) <em id="nAff"></em></button>
+      <button type="button" class="btn" id="dlComplet">Toutes les zones du secteur <em id="nTout"></em></button>
+    </div>
+  </fieldset>
+  </section>
+
+  <section role="tabpanel" id="p-zones" aria-labelledby="t-zones" class="tabp" hidden>
+  <fieldset>
+    <legend>Zones du secteur</legend>
+    <div class="summary" id="summary"></div>
+    <div class="hint" id="filtres"></div>
+    <div id="list"></div>
+  </fieldset>
+  </section>
+
+  <p class="legal">Outil d'aide à la préparation : il ne remplace pas le briefing officiel (SOFIA, NOTAM, AZBA).
+    Sources : SOFIA-Briefing (SIA/DGAC), SUP AIP, base AIP planeur-net.</p>
+</aside>
+<div id="map"></div>
+
+<script>
+/* ---------- Donnees : releve integre (page autonome) ou latest.json (page hebergee) ---------- */
+const EMBED = /*__RELEVE__*/null;
+const PRESET = /*__PRESET__*/null;     // secteur pre-regle (carte generee par zones_secteur.py)
+const SITES = [
+  {nom:"Jeufosse (78)", lat:49.0361, lon:1.5394},
+  {nom:"Mont de la Comté (62)", lat:50.423588, lon:2.50259},
+  {nom:"Crucey (28)", lat:48.645, lon:1.09972},
+];
+
+/* ---------- Geodesie spherique (ecarts < 0,5 % avec l'ellipsoide sur 400 km) ---------- */
+const R = 6371008.8, D2R = Math.PI/180, NM = 1852;
+const PLAFOND_FL = 115;   // limite fixe : zones retenues et exports = plancher sous le FL115
+function dest(lat, lon, brg, d){
+  const p1=lat*D2R, l1=lon*D2R, b=brg*D2R, a=d/R;
+  const p2=Math.asin(Math.sin(p1)*Math.cos(a)+Math.cos(p1)*Math.sin(a)*Math.cos(b));
+  const l2=l1+Math.atan2(Math.sin(b)*Math.sin(a)*Math.cos(p1),Math.cos(a)-Math.sin(p1)*Math.sin(p2));
+  return [p2/D2R, ((l2/D2R+540)%360)-180];
+}
+function bearing(lat1, lon1, lat2, lon2){
+  const p1=lat1*D2R,p2=lat2*D2R,dl=(lon2-lon1)*D2R;
+  return (Math.atan2(Math.sin(dl)*Math.cos(p2),Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl))/D2R+360)%360;
+}
+function projector(lat0, lon0){      // azimutale equidistante centree sur le sommet
+  const p0=lat0*D2R, s0=Math.sin(p0), c0=Math.cos(p0);
+  return (lat, lon) => {
+    const p=lat*D2R, dl=(lon-lon0)*D2R, sp=Math.sin(p), cp=Math.cos(p), cd=Math.cos(dl);
+    const cosc=Math.max(-1,Math.min(1,s0*sp+c0*cp*cd)), c=Math.acos(cosc), k=c<1e-12?1:c/Math.sin(c);
+    return [R*k*cp*Math.sin(dl), R*k*(c0*sp-s0*cp*cd)];
+  };
+}
+function pip(x,y,poly){ let ins=false; for(let i=0,j=poly.length-1;i<poly.length;j=i++){const[xi,yi]=poly[i],[xj,yj]=poly[j];
+  if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi+1e-30)+xi)ins=!ins;} return ins; }
+function segX(p1,p2,p3,p4){ const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const d1=cr(p3,p4,p1),d2=cr(p3,p4,p2),d3=cr(p1,p2,p3),d4=cr(p1,p2,p4); return d1*d2<0&&d3*d4<0; }
+function polysIntersect(a,b){
+  if(a.some(([x,y])=>pip(x,y,b))||b.some(([x,y])=>pip(x,y,a))) return true;
+  for(let i=0;i<a.length;i++) for(let j=0;j<b.length;j++) if(segX(a[(i||a.length)-1],a[i],b[(j||b.length)-1],b[j])) return true;
+  return false;
+}
+
+/* ---------- Soleil (NOAA simplifie, ~1-2 min) ---------- */
+function sunTimes(dateStr, lat, lon){
+  const d=new Date(dateStr+"T00:00:00Z"), n=Math.floor((d-Date.UTC(d.getUTCFullYear(),0,0))/864e5);
+  const g=2*Math.PI/365*(n-1);
+  const eqt=229.18*(0.000075+0.001868*Math.cos(g)-0.032077*Math.sin(g)-0.014615*Math.cos(2*g)-0.040849*Math.sin(2*g));
+  const dec=0.006918-0.399912*Math.cos(g)+0.070257*Math.sin(g)-0.006758*Math.cos(2*g)+0.000907*Math.sin(2*g)-0.002697*Math.cos(3*g)+0.00148*Math.sin(3*g);
+  const la=lat*D2R; let ch=Math.cos(90.833*D2R)/(Math.cos(la)*Math.cos(dec))-Math.tan(la)*Math.tan(dec);
+  ch=Math.max(-1,Math.min(1,ch)); const ha=Math.acos(ch)/D2R;
+  return [new Date(+d+(720-4*(lon+ha)-eqt)*6e4), new Date(+d+(720-4*(lon-ha)-eqt)*6e4)];
+}
+
+/* ---------- Saisie des coordonnees : 49.0361, 490210N, 49:02:10N, 49°02'10"N, 1.5394, 0013222E ---------- */
+function parseCoord(txt, isLat){
+  let t=String(txt).trim().toUpperCase().replace(/[°'"’”:\s]/g," ").replace(/\s+/g," ").trim();
+  if(/^[+-]?\d+(\.\d+)?$/.test(t)) return parseFloat(t);
+  const h=(t.match(/[NSEW]$/)||[""])[0]; t=t.replace(/[NSEW]$/,"").trim();
+  let deg,min=0,sec=0;
+  if(t.includes(" ")){ [deg,min=0,sec=0]=t.split(" ").map(Number); }
+  else { const [ip,fr]=t.split("."); const n=isLat?2:3, s=ip.padStart(n,"0");
+    deg=+s.slice(0,n); min=+(s.slice(n,n+2)||0); sec=+((s.slice(n+2)||"0")+(fr?"."+fr:"")); }
+  let v=deg+min/60+sec/3600; if(isNaN(v)) return NaN; return (h==="S"||h==="W")?-v:v;
+}
+const pad=(n,w=2)=>String(n).padStart(w,"0");
+function oaCoord(v,isLat){ const a=Math.abs(v); let d=Math.floor(a), m=Math.floor((a-d)*60), s=Math.round(((a-d)*60-m)*60);
+  if(s===60){m++;s=0} if(m===60){d++;m=0}
+  return `${pad(d,isLat?2:3)}:${pad(m)}:${pad(s)} ${isLat?(v>=0?"N":"S"):(v>=0?"E":"W")}`; }
+const oaPt=(la,lo)=>`${oaCoord(la,true)} ${oaCoord(lo,false)}`;
+
+/* ---------- Affichage ---------- */
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function altDisplay(s){ s=String(s||"").trim().toUpperCase(); if(["GND","SFC","0",""].includes(s)) return "0 ft AGL";
+  return s.replace(/^FL\s*0*(\d+)/,"FL $1").replace(/(\d)\s*FT\b/,"$1 ft").replace("ASFC","AGL"); }
+const hm=d=>`${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+const dmy=d=>`${pad(d.getUTCDate())}/${pad(d.getUTCMonth()+1)}/${d.getUTCFullYear()}`;
+const parseZ=s=>new Date(s.replace("Z",":00Z"));
+
+let SNAP=null, map, sectorLayer, targetMarker, groups={}, polys=[], result=null, pickMode=null;
+const F={fond:"Plan (Esri)",w:true,pays:{},alt:true,altFt:6500,cat:{"active":true,"SUP AIP - activables":true,"SUP AIP - non interprete":true,"SUP AIP - activable, non activee":false,"SUP AIP - inactive (horaires)":false,"info":false}};
+const $=id=>document.getElementById(id);
+
+// « lire le SUP » devient un lien vers le PDF officiel du SIA
+function motifHtml(p){
+  const m=esc(p.motif||"");
+  return p.sup_pdf ? m.replace(/lire le SUP/i,`<a href="${esc(p.sup_pdf)}" target="_blank" rel="noopener">lire le SUP ${esc(p.sup_aip||"")}</a>`) : m;
+}
+function popupHtml(z){
+  const d1=dmy(z.slots[0][0]), d2=dmy(z.slots[z.slots.length-1][1]);
+  const p=z.p;
+  return `<div class="pop"><div><span class="t">${esc(p.titre||p.nom)}</span>${p.sous_titre?` <span class="s">${esc(p.sous_titre)}</span>`:""}</div>
+  <div class="alt">${esc(altDisplay(p.plafond))}<br>${esc(altDisplay(p.plancher))}</div>
+  ${p.categorie===C_NA||p.categorie===C_IN?`<div class="sl" style="color:var(--muted)">Non active sur ce créneau</div>`:
+  `<div>${p.categorie==="active"?"Active":"Activité possible"} du ${d1} au ${d2}</div>
+  <div class="sl">${z.slots.map(([a,b])=>`${hm(a)} - ${hm(b)}`).join("<br>")} <small>UTC</small></div>`}
+  ${p.horaire_interprete&&p.horaire_interprete!=="oui"?`<div style="color:var(--warn)">Horaire non interprété : vérifier l'item D</div>`:""}
+  ${p.categorie!=="active"?`<div class="cat">${esc(CAT_LABEL[p.categorie]||p.categorie)}${p.motif?` : ${motifHtml(p)}`:""}</div>`:""}
+  ${p.activation==="horaires SUP"?`<div class="cat" style="color:var(--muted)">Active selon les horaires du SUP AIP ${esc(p.sup_aip||"")}</div>`:""}
+  ${p.frequences?`<div class="info">Activité réelle : <b>${esc(p.frequences)}</b></div>`:""}
+  ${p.telephones?`<div class="info">Tél. : <span class="tel">${esc(p.telephones)}</span>${p.gestionnaire?` <span class="muted">(${esc(p.gestionnaire.slice(0,70))})</span>`:""}</div>`:""}
+  ${p.penetration?`<div class="info muted">Pénétration : ${esc(p.penetration)}</div>`:""}
+  <details><summary>Détails</summary>NOTAM ${esc(p.notam)} (Q${esc(p.code)}) · ${z.dist} km au ${pad(z.brg,3)}°<br>Géométrie : ${esc(p.geometrie)}<br>
+  ${p.item_d?`Item D : ${esc(p.item_d)}<br>`:""}
+  ${p.sup_aip?`SUP AIP ${esc(p.sup_aip)} : ${esc(p.sup_titre)}${p.sup_pdf?` (<a href="${esc(p.sup_pdf)}" target="_blank" rel="noopener">PDF</a>)`:""}<br>`:""}
+  <pre>${esc(p.texte)}</pre></details></div>`;
+}
+
+/* ---------- Carte ---------- */
+function initMap(){
+  map=L.map("map",{zoomControl:true});
+  const ESRI="https://server.arcgisonline.com/ArcGIS/rest/services/", EA="Tiles &copy; Esri — Esri, HERE, Garmin, USGS, OpenStreetMap contributors";
+  BASES={
+    "Plan (Esri)":L.tileLayer(ESRI+"World_Street_Map/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:EA}),
+    "Plan IGN (France)":L.tileLayer("https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",{maxZoom:19,attribution:'&copy; <a href="https://www.ign.fr">IGN</a> - Géoplateforme'}),
+    "Topographique (Esri)":L.tileLayer(ESRI+"World_Topo_Map/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:EA}),
+    "Relief (OpenTopoMap)":L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",{maxZoom:17,attribution:'&copy; OpenStreetMap, SRTM | &copy; OpenTopoMap'}),
+  };
+  setFond(F.fond);
+  for(const c of CATS) groups[c]=L.layerGroup().addTo(map);
+  // Bouton pour replier / deplier le panneau de preparation (carte en grand)
+  const Toggle=L.Control.extend({onAdd(){ const b=L.DomUtil.create("button","paneltoggle"); b.type="button"; b.id="panelToggle";
+    L.DomEvent.disableClickPropagation(b); b.addEventListener("click",()=>setPanel(!document.body.classList.contains("collapsed"))); return b; }});
+  new Toggle({position:"topleft"}).addTo(map);
+  map.on("click",onMapClick);
+  map.setView([46.6,2.4],6);
+}
+
+let BASES={};
+function setFond(name){
+  if(!BASES[name]) name="Plan (Esri)";
+  for(const [k,l] of Object.entries(BASES)) if(k!==name&&map.hasLayer(l)) map.removeLayer(l);
+  if(!map.hasLayer(BASES[name])) BASES[name].addTo(map).bringToBack();
+  F.fond=name;
+}
+function setPanel(collapsed){
+  document.body.classList.toggle("collapsed",collapsed);
+  const b=$("panelToggle");
+  if(b){ b.textContent=collapsed?"☰ Préparation":"✕ Carte en grand";
+    b.setAttribute("aria-label",collapsed?"Afficher le panneau de préparation":"Masquer le panneau pour agrandir la carte"); }
+  try{ localStorage.setItem("secteurVFR.panel",collapsed?"1":"0"); }catch(e){}
+  setTimeout(()=>map.invalidateSize(),60);
+}
+
+/* ---------- Options d'affichage et d'export (panneau) ---------- */
+const C_RADIO="SUP AIP - activables", C_VERIF="SUP AIP - non interprete", C_NA="SUP AIP - activable, non activee", C_IN="SUP AIP - inactive (horaires)";
+const CATS=["active",C_RADIO,C_VERIF,C_NA,C_IN,"info"];
+// Cases des options d'affichage : « SUP inactifs » regroupe « activable, non activee » et « inactive (horaires) »
+// Avertissements (W : voltige, aeromodelisme, parachutage...) et zones dangereuses (RD) actifs : VFR non interdit.
+// Ils ne dependent que de la case « Zones W et D » ; un W ou D d'une autre categorie (information...) depend de la
+// case de sa categorie.
+const estW=z=>(z.p.code.startsWith("W")||z.p.code.startsWith("RD"))&&z.p.categorie==="active";
+const caseCochee=z=>estW(z)?F.w:F.cat[z.p.categorie]!==false;
+const GROUPES_AFF=[{label:"Zones actives (interdites VFR)",cats:["active"]},{label:"SUP activables",cats:[C_RADIO]},
+  {label:"SUP non interprété",cats:[C_VERIF],siPresent:true},{label:"SUP inactifs",cats:[C_NA,C_IN]},{label:"NOTAM d'information",cats:["info"]}];
+const CAT_LABEL={"active":"Zones actives","SUP AIP - activables":"SUP activables","SUP AIP - non interprete":"SUP non interprété","SUP AIP - activable, non activee":"SUP activable, non activée","SUP AIP - inactive (horaires)":"SUP inactive (hors horaires)","info":"NOTAM d'information"};
+const catColor=(p,col)=>p.categorie==="active"?(p.classe==="Q"?col("--amber"):col("--magenta")):(p.categorie===C_VERIF||p.categorie===C_RADIO)?col("--violet"):col("--grey");
+function renderOpts(){
+  const zones=result?result.zones:[];
+  // Compteurs = zones POUVANT etre affichees : celles que la case montre quand elle est cochee, compte tenu des
+  // autres filtres (plancher, pays). Chaque zone depend d'une seule case : les compteurs s'additionnent.
+  const okAlt=z=>!(F.alt&&(z.p.plancher_ft||0)>=F.altFt), okPays=z=>F.pays[z.p.pays]!==false;
+  const nCat=g=>zones.filter(z=>g.cats.includes(z.p.categorie)&&!estW(z)&&okAlt(z)&&okPays(z)).length;
+  const nW=zones.filter(z=>estW(z)&&okAlt(z)&&okPays(z)).length;
+  const nAlt=zones.filter(z=>(z.p.plancher_ft||0)>=F.altFt).length;
+  const pays={}; for(const z of zones) pays[z.p.pays]=(pays[z.p.pays]||0)+(okAlt(z)&&caseCochee(z)?1:0);
+  const pk=Object.keys(pays).sort((a,b)=>a==="France"?-1:b==="France"?1:a.localeCompare(b));
+  $("opts").innerHTML=
+    `<label class="f">Fond de carte
+       <select id="optFond" data-f="fond">${Object.keys(BASES).map(k=>`<option ${k===F.fond?"selected":""}>${esc(k)}</option>`).join("")}</select></label>
+     <label class="opt"><input type="checkbox" id="optAlt" data-f="alt" ${F.alt?"checked":""}><span>Masquer plancher ≥ FL</span>
+       <input type="number" id="optAltV" data-f="altv" value="${F.altFt/100}" min="0" max="115" step="5" aria-label="Niveau de vol"></label>
+     <div class="hint">${F.alt?`${nAlt} zone(s) du secteur au FL${F.altFt/100} ou plus, masquée(s) par ce filtre`:"Filtre d'altitude inactif"}</div>     <div class="optgrp"><span>Catégories</span>${GROUPES_AFF.map((g,i)=>g.siPresent&&!zones.some(z=>g.cats.includes(z.p.categorie))?"":`<label class="opt"><input type="checkbox" data-g="${i}" ${g.cats.every(c=>F.cat[c])?"checked":""}><span>${g.label}</span><em>${nCat(g)}</em></label>`).join("")}
+       <label class="opt"><input type="checkbox" id="optW" data-f="w" ${F.w?"checked":""}><span>Zones W et D : avertissements et zones dangereuses, VFR non interdit (voltige, parachutage, tirs…)</span><em>${nW}</em></label></div>`
+    +(pk.length>1?`<div class="optgrp"><span>Pays</span>${pk.map(k=>`<label class="opt"><input type="checkbox" data-p="${esc(k)}" ${F.pays[k]!==false?"checked":""}><span>${esc(k)}</span><em>${pays[k]}</em></label>`).join("")}</div>`:"");
+}
+function onOpt(e){
+  const t=e.target;
+  if(t.dataset.f==="fond"){ setFond(t.value); saveOpts(); return; }
+  if(t.dataset.f==="w") F.w=t.checked;
+  else if(t.dataset.f==="alt") F.alt=t.checked;
+  else if(t.dataset.f==="altv") F.altFt=Math.min(115,parseFloat(t.value)||0)*100;
+  else if(t.dataset.g) for(const c of GROUPES_AFF[+t.dataset.g].cats) F.cat[c]=t.checked;
+  else if(t.dataset.p) F.pays[t.dataset.p]=t.checked;
+  else return;
+  saveOpts(); refreshVis();
+  if(e.type==="change") renderOpts();     // compteurs ; pas pendant la saisie pour garder le curseur
+}
+function saveOpts(){ try{ localStorage.setItem("secteurVFR.opts",JSON.stringify({w:F.w,alt:F.alt,altFt:F.altFt,cat:F.cat,fond:F.fond})); }catch(e){} }
+function loadOpts(){ try{ const o=JSON.parse(localStorage.getItem("secteurVFR.opts")||"null"); if(!o) return;
+  for(const k of ["w","alt","altFt","fond"]) if(k in o) F[k]=o[k];
+  // seules les categories qui existent encore sont reprises (les autres gardent leur valeur par defaut)
+  if(o.cat) for(const c of Object.keys(F.cat)) if(typeof o.cat[c]==="boolean") F.cat[c]=o.cat[c];
+}catch(e){} }
+
+function onMapClick(e){
+  if(pickMode==="apex"){ $("lat").value=e.latlng.lat.toFixed(5); $("lon").value=e.latlng.lng.toFixed(5); $("site").value=""; setPick(null); compute(); return; }
+  if(pickMode==="target"){ const la=parseCoord($("lat").value,true), lo=parseCoord($("lon").value,false);
+    $("axe").value=bearing(la,lo,e.latlng.lat,e.latlng.lng).toFixed(1); window._target=[e.latlng.lat,e.latlng.lng]; setPick(null); compute(); return; }
+  // Clic : toutes les zones visibles a cet endroit, actives d'abord, petites avant grandes
+  const rank={info:0,[C_NA]:0,[C_IN]:0,active:2};
+  const hit=polys.filter(p=>map.hasLayer(p)&&pip(e.latlng.lng,e.latlng.lat,p._ll))
+    .sort((a,b)=>((rank[b._z.p.categorie]??1)-(rank[a._z.p.categorie]??1))||(a._z.area-b._z.area));
+  if(!hit.length) return;
+  L.popup({maxWidth:480,maxHeight:520}).setLatLng(e.latlng)
+    .setContent((hit.length>1?`<div style="color:var(--muted);margin-bottom:4px">${hit.length} zones à cet endroit</div>`:"")+hit.map(p=>popupHtml(p._z)).join('<hr style="margin:8px 0;border:0;border-top:1px solid var(--line)">'))
+    .openOn(map);
+}
+function setPick(m){ pickMode=m; $("pickApex").classList.toggle("on",m==="apex"); $("pickTarget").classList.toggle("on",m==="target");
+  document.querySelector(".mode-tip")?.remove();
+  if(m){ const t=document.createElement("div"); t.className="mode-tip"; t.textContent=m==="apex"?"Cliquez le sommet du secteur":"Cliquez un point dans la direction de l'axe";
+    $("map").appendChild(t); } }
+
+/* ---------- Calcul ---------- */
+function params(){
+  const lat=parseCoord($("lat").value,true), lon=parseCoord($("lon").value,false);
+  const axe=parseFloat($("axe").value), ouv=parseFloat($("ouv").value), ray=parseFloat($("ray").value)*1000;
+  const jour=$("jour").value, plaf=PLAFOND_FL;
+  return {lat,lon,axe,ouv,ray,jour,plaf};
+}
+function updateSunDefaults(force){
+  const {lat,lon,jour}=params(); if(isNaN(lat)||isNaN(lon)||!jour) return;
+  const [sr,ss]=sunTimes(jour,lat,lon);
+  $("sunHint").textContent=`Lever ${hm(sr)}Z, coucher ${hm(ss)}Z au sommet. Créneau par défaut : SR−30 à SS+30.`;
+  if(force||!$("deb").value) $("deb").value=hm(new Date(+sr-18e5));
+  if(force||!$("fin").value) $("fin").value=hm(new Date(+ss+18e5));
+}
+function compute(){
+  if(!SNAP) return;
+  const P=params();
+  if([P.lat,P.lon,P.axe,P.ouv,P.ray].some(isNaN)){ $("summary").innerHTML=`<span style="color:var(--warn)">Coordonnées ou axe illisibles.</span>`; return; }
+  saveParams();
+  const w0=new Date(`${P.jour}T${$("deb").value||"00:00"}:00Z`), w1raw=new Date(`${P.jour}T${$("fin").value||"23:59"}:00Z`);
+  const w1=w1raw>w0?w1raw:new Date(+w1raw+864e5), now=new Date();
+  const proj=projector(P.lat,P.lon), half=P.ouv/2;
+  // Secteur : sommet + arc tous les 1 degre
+  const sect=[[P.lat,P.lon]]; for(let b=P.axe-half;b<=P.axe+half+1e-9;b+=1) sect.push(dest(P.lat,P.lon,b,P.ray));
+  const sectXY=sect.map(([a,b])=>proj(a,b));
+  // Zones
+  const zones=[];
+  for(const f of SNAP.features){
+    const p=f.properties;
+    if((p.plancher_ft||0)>=P.plaf*100) continue;
+    const slots=[]; for(const [a,b] of p.creneaux){ const x=new Date(Math.max(+parseZ(a),+w0)), y=new Date(Math.min(+parseZ(b),+w1));
+      if(y>x&&y>now) slots.push([x,y]); }
+    if(!slots.length) continue;
+    const ring=f.geometry.coordinates[0], xy=ring.map(([lo,la])=>proj(la,lo));
+    if(!polysIntersect(xy,sectXY)) continue;
+    const cx=xy.reduce((s,q)=>s+q[0],0)/xy.length, cy=xy.reduce((s,q)=>s+q[1],0)/xy.length;
+    let area=0; for(let i=0,j=xy.length-1;i<xy.length;j=i++) area+=(xy[j][0]+xy[i][0])*(xy[j][1]-xy[i][1]);
+    zones.push({p,f,slots,ll:ring,dist:Math.round(Math.hypot(cx,cy)/1000),brg:Math.round((Math.atan2(cx,cy)/D2R+360)%360),area:Math.abs(area/2)});
+  }
+  const order=Object.fromEntries(CATS.map((c,i)=>[c,i]));
+  zones.sort((a,b)=>(order[a.p.categorie]-order[b.p.categorie])||(a.dist-b.dist));
+  result={P,w0,w1,sect,zones};
+  draw(); renderList();
+}
+function draw(){
+  const {P,sect,zones}=result;
+  sectorLayer?.remove(); targetMarker?.remove();
+  for(const g of Object.values(groups)) g.clearLayers(); polys=[];
+  const cs=getComputedStyle(document.documentElement), col=k=>cs.getPropertyValue(k).trim();
+  sectorLayer=L.polygon(sect,{color:col("--navy"),weight:2,fillOpacity:.04,interactive:false}).addTo(map);
+  if(window._target) targetMarker=L.circleMarker(window._target,{radius:4,color:col("--navy"),interactive:false}).addTo(map);
+  // dessin : info en dessous, puis SUP, actives au-dessus ; grandes zones d'abord
+  const rank={info:0,[C_NA]:0,[C_IN]:0,active:2};
+  const zs=zones.slice().sort((a,b)=>((rank[a.p.categorie]??1)-(rank[b.p.categorie]??1))||(b.area-a.area));
+  const pays={}; for(const z of zones) pays[z.p.pays]=(pays[z.p.pays]||0)+1;
+  for(const k of Object.keys(pays)) if(!(k in F.pays)) F.pays[k]=true;
+  for(const z of zs){
+    const p=z.p, approx=/approx/.test(p.geometrie);
+    const c=catColor(p,col);
+    const poly=L.polygon(z.ll.map(([lo,la])=>[la,lo]),{color:c,weight:approx?1.5:2,dashArray:approx?"6 5":null,fillOpacity:p.categorie==="active"?.2:.07});
+    poly._z=z; poly._ll=z.ll; poly._g=groups[p.categorie]; polys.push(poly);
+  }
+  renderOpts();
+  refreshVis();
+  map.fitBounds(sectorLayer.getBounds(),{padding:[20,20]});
+}
+function refreshVis(){
+  for(const p of polys){ const ok=visible(p._z);
+    if(ok&&!p._g.hasLayer(p)) p._g.addLayer(p); else if(!ok&&p._g.hasLayer(p)) p._g.removeLayer(p); }
+  renderList();
+}
+// Une zone est affichee, listee et exportee si elle passe toutes les options du panneau
+function visible(z){ const p=z.p; return caseCochee(z)&&F.pays[p.pays]!==false
+  &&!(F.alt&&(p.plancher_ft||0)>=F.altFt); }
+function renderList(){
+  if(!result) return;
+  const zs=result.zones.filter(visible);
+  const n=c=>zs.filter(z=>z.p.categorie===c).length;
+  const hidden=result.zones.length-zs.length;
+  $("badge").textContent=zs.length;
+  $("nAff").textContent=zs.length; $("nTout").textContent=result.zones.length;
+  const nAct=zs.filter(z=>z.p.categorie==="active"&&!estW(z)).length, nZW=zs.filter(estW).length;
+  $("summary").innerHTML=`<span class="chip act">${nAct} actives (interdites VFR)</span>`+(nZW?`<span class="chip" style="color:var(--amber)">${nZW} zones W et D</span>`:"")+`<span class="chip sup">${n(C_RADIO)} SUP activables</span>`+(n(C_VERIF)?`<span class="chip sup">${n(C_VERIF)} SUP non interprété(s)</span>`:"")
+    +(hidden?`<span class="chip inf">${hidden} masquées par les filtres</span>`:"");
+  // Rappel des filtres en cours (ils sont memorises par le navigateur d'une carte a l'autre)
+  const off=GROUPES_AFF.filter(g=>!g.cats.every(c=>F.cat[c])
+      &&!(g.siPresent&&!result.zones.some(z=>g.cats.includes(z.p.categorie)))).map(g=>g.label);
+  const paysOff=Object.keys(F.pays).filter(k=>F.pays[k]===false);
+  $("filtres").innerHTML="Filtres : "+[F.alt?`plancher &lt; FL${F.altFt/100}`:`<b style="color:var(--warn)">filtre de plancher désactivé</b>`,
+      F.w?null:"zones W et D masquées", off.length?`masqués : ${off.map(esc).join(", ")}`:null,
+      paysOff.length?`pays masqués : ${paysOff.map(esc).join(", ")}`:null].filter(Boolean).join(" · ")
+    +` · <a href="#" id="voirFiltres">modifier</a>`;
+  $("voirFiltres").onclick=e=>{e.preventDefault(); setTab("affichage");};
+  $("list").innerHTML=zs.map((z,i)=>{const p=z.p, c=catColor(p,k=>`var(${k})`);
+    return `<button type="button" class="z" data-i="${result.zones.indexOf(z)}"><i style="background:${c}"></i>
+      <div><b>${esc(p.titre||p.nom)}</b><span>${esc(altDisplay(p.plancher))} – ${esc(altDisplay(p.plafond))} · ${z.slots.map(([a,b])=>hm(a)+"-"+hm(b)).join(" ")}Z</span></div>
+      <em>${z.dist} km/${pad(z.brg,3)}°</em></button>`;}).join("")||`<div class="hint">Aucune zone dans ce secteur pour ce créneau.</div>`;
+}
+$("list").addEventListener("click",e=>{const b=e.target.closest(".z"); if(!b) return; const z=result.zones[+b.dataset.i];
+  const ll=L.latLngBounds(z.ll.map(([lo,la])=>[la,lo])); map.fitBounds(ll,{maxZoom:10,padding:[40,40]});
+  L.popup({maxWidth:480,maxHeight:520}).setLatLng(ll.getCenter()).setContent(popupHtml(z)).openOn(map);});
+
+/* ---------- Export OpenAir ---------- */
+// Perimetre d'export : zones affichees (filtres de la carte) ou toutes les zones du secteur (plancher < FL115)
+function oaHeader(complet){ const {P,w0,w1}=result;
+  return [`* Genere par la page Secteur VFR le ${new Date().toISOString().slice(0,16)}Z - releve SOFIA du ${SNAP.meta.genere}`,
+    `* Sommet ${oaPt(P.lat,P.lon)} axe ${P.axe} ouverture ${P.ouv} rayon ${P.ray/1000} km`,
+    `* Jour ${P.jour} creneau ${hm(w0)}-${hm(w1)} UTC`,
+    complet ? `* Perimetre : toutes les zones du secteur (sans filtre d'affichage), plancher < FL${P.plaf}`
+      : `* Perimetre : zones affichees - plancher < FL${F.alt?Math.min(P.plaf,F.altFt/100):P.plaf}`
+        +(F.w?"":", sans zones W et D")+(Object.values(F.pays).some(v=>!v)?`, pays exclus : ${Object.keys(F.pays).filter(k=>!F.pays[k]).join(" ")}`:"")
+        +(GROUPES_AFF.some(g=>!g.cats.every(c=>F.cat[c]))?`, categories masquees : ${GROUPES_AFF.filter(g=>!g.cats.every(c=>F.cat[c])).map(g=>g.label).join(", ")}`:""),
+    `* OUTIL D'AIDE - verifier le briefing officiel avant le vol`,""]; }
+function oaZones(complet){
+  const out=oaHeader(complet);
+  for(const z of result.zones.filter(z=>complet||visible(z))){ const p=z.p;
+    out.push(`* ${p.notam} Q${p.code} - ${p.categorie} - geometrie : ${p.geometrie}`);
+    if(p.sup_aip) out.push(`* SUP AIP ${p.sup_aip} ${String(p.sup_titre).slice(0,90)}`);
+    if(p.motif) out.push(`* ${p.motif}`);
+    if(p.frequences) out.push(`* Activite reelle connue de : ${p.frequences}`);
+    if(p.telephones) out.push(`* Telephone : ${p.telephones}`);
+    out.push(`AC ${p.classe}`, `AN ${String(p.nom).slice(0,45)} ${z.slots.map(([a,b])=>hm(a).replace(":","")+"-"+hm(b).replace(":","")).join(" ")}Z (${p.notam})`);
+    // premiere frequence : champs OpenAir AF (frequence) et AG (indicatif)
+    const fq=String(p.frequences||"").split(" / ")[0].match(/^(.+) (\d{3}\.\d{1,3})$/);
+    if(fq) out.push(`AF ${fq[2]}`, `AG ${fq[1]}`);
+    out.push(`AL ${p.plancher}`, `AH ${p.plafond}`, ...p.openair, ""); }
+  return out.join("\n");
+}
+function save(name,text){ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type:"text/plain"}));
+  a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500); }
+const tag=()=>`${result.P.jour}_${Math.round(result.P.axe)}`;
+// Deux exports : zones affichees (filtres de la carte) ou toutes les zones du secteur (plancher < FL115)
+$("dlAff").onclick=()=>result&&save(`zones_${tag()}.txt`,oaZones(false));
+$("dlComplet").onclick=()=>result&&save(`zones_${tag()}_complet.txt`,oaZones(true));
+
+/* ---------- Formulaire ---------- */
+const KEYS=["lat","lon","axe","ouv","ray"];
+function saveParams(){ try{ localStorage.setItem("secteurVFR",JSON.stringify(Object.fromEntries(KEYS.map(k=>[k,$(k).value])))); }catch(e){} }
+function loadParams(){ try{ const o=JSON.parse(localStorage.getItem("secteurVFR")||"null"); if(o) for(const k of KEYS) if(o[k]!=null) $(k).value=o[k]; }catch(e){} }
+for(const s of SITES){ const o=document.createElement("option"); o.value=s.nom; o.textContent=s.nom; $("site").appendChild(o); }
+$("site").onchange=()=>{ const s=SITES.find(x=>x.nom===$("site").value); if(s){ $("lat").value=s.lat; $("lon").value=s.lon; updateSunDefaults(true); compute(); } };
+$("pickApex").onclick=()=>setPick(pickMode==="apex"?null:"apex");
+$("pickTarget").onclick=()=>setPick(pickMode==="target"?null:"target");
+$("jour").onchange=()=>{ updateSunDefaults(true); compute(); };
+["lat","lon"].forEach(k=>$(k).addEventListener("change",()=>{ $("site").value=""; window._target=null; updateSunDefaults(true); }));
+$("axe").addEventListener("change",()=>{ window._target=null; });
+$("form").addEventListener("submit",e=>{ e.preventDefault(); compute(); setTab("zones"); });
+
+/* ---------- Onglets ---------- */
+const TABS=["secteur","affichage","zones"];
+function setTab(name, focus){
+  if(!TABS.includes(name)) name="secteur";
+  for(const t of TABS){ const on=t===name, b=$("t-"+t);
+    b.setAttribute("aria-selected",on); b.tabIndex=on?0:-1; $("p-"+t).hidden=!on; }
+  if(focus) $("t-"+name).focus();
+  try{ localStorage.setItem("secteurVFR.tab",name); }catch(e){}
+}
+document.querySelector(".tabs").addEventListener("click",e=>{ const b=e.target.closest("[data-tab]"); if(b) setTab(b.dataset.tab); });
+document.querySelector(".tabs").addEventListener("keydown",e=>{
+  const i=TABS.indexOf(document.activeElement?.dataset?.tab); if(i<0) return;
+  const j={ArrowRight:i+1,ArrowLeft:i-1,Home:0,End:TABS.length-1}[e.key]; if(j===undefined) return;
+  e.preventDefault(); setTab(TABS[(j+TABS.length)%TABS.length],true); });
+try{ setTab(localStorage.getItem("secteurVFR.tab")||"secteur"); }catch(e){ setTab("secteur"); }
+
+function initSnapshot(s){
+  SNAP=s; const m=s.meta, gen=parseZ(m.genere), age=(Date.now()-gen)/6e4;
+  const f0=parseZ(m.fenetre[0]), f1=parseZ(m.fenetre[1]);
+  $("snap").classList.toggle("old",age>120);
+  $("snap").innerHTML=`Relevé SOFIA du ${dmy(gen)} à ${hm(gen)}Z (il y a ${age<90?Math.round(age)+" min":Math.round(age/60)+" h"})<br>`
+    +`Couvre du ${dmy(f0)} ${hm(f0)}Z au ${dmy(f1)} ${hm(f1)}Z · ${m.nb_zones} zones ${PRESET?"dans ce secteur":"France"}`
+    +(age>120?`<br>Relevé ancien : les activations récentes peuvent manquer.`:"");
+  // jours couverts par le releve
+  const days=[]; for(let d=new Date(Date.UTC(f0.getUTCFullYear(),f0.getUTCMonth(),f0.getUTCDate())); d<f1; d=new Date(+d+864e5)) days.push(d.toISOString().slice(0,10));
+  $("jour").innerHTML=days.map(d=>`<option value="${d}">${d.split("-").reverse().join("/")}</option>`).join("");
+  const today=new Date().toISOString().slice(0,10); if(days.includes(today)) $("jour").value=today;
+  if(PRESET){
+    // Carte produite par zones_secteur.py : secteur et creneau du calcul, zones du secteur seulement
+    for(const k of ["lat","lon","axe","ouv","ray"]) $(k).value=PRESET[k];
+    $("site").value="";
+    if(!days.includes(PRESET.jour)) $("jour").insertAdjacentHTML("beforeend",`<option value="${PRESET.jour}">${PRESET.jour.split("-").reverse().join("/")}</option>`);
+    $("jour").value=PRESET.jour;
+    updateSunDefaults(true); $("deb").value=PRESET.deb; $("fin").value=PRESET.fin;
+    $("snap").innerHTML+=`<br><b>Carte calculée pour ce secteur</b> : changer le sommet ou l'axe n'ajoute pas d'autres zones.`;
+    compute(); setTab("zones"); return;
+  }
+  updateSunDefaults(true); compute();
+}
+$("opts").addEventListener("change",onOpt);
+$("opts").addEventListener("input",e=>{ if(e.target.dataset.f==="altv") onOpt(e); });
+loadOpts(); initMap(); loadParams(); renderOpts();
+try{ setPanel(localStorage.getItem("secteurVFR.panel")==="1"); }catch(e){ setPanel(false); }
+if(EMBED) initSnapshot(EMBED);
+else fetch("latest.json",{cache:"no-store"}).then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); }).then(initSnapshot)
+  .catch(e=>{ $("snap").classList.add("old"); $("snap").textContent="Relevé introuvable (latest.json). Ouvrez la page générée par releve_france.py ou la version en ligne."; });
+</script>
+</body>
+</html>
