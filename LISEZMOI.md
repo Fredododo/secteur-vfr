@@ -64,7 +64,9 @@ Générées à chaque relevé à partir de `carte_template.html` :
 La page a quatre onglets :
 - **Secteur** : sommet (site, coordonnées décimales ou DMS, ou clic sur la carte), axe (degrés ou « viser un point »),
   ouverture, rayon, jour (dans la fenêtre du relevé), créneau (SR−30 / SS+30 au sommet par défaut) ;
-- **Affichage** : fond de carte, filtres (plancher ≥ FL, catégories, zones W et D, pays) ;
+- **Affichage** : fond de carte, filtres (plancher ≥ FL, catégories, zones W et D, pays), « Afficher aussi les créneaux
+  terminés » (décochée par défaut : seules les activités en cours ou à venir sont montrées ; cochée, les créneaux passés
+  depuis l'heure du relevé sont gardés et marqués « terminé ») ;
 - **Zones** : liste cliquable des zones affichées (clic sur la carte = toutes les zones du point) ;
 - **Export** : OpenAir avec cercles et arcs natifs, deux boutons : « Zones affichées (après filtres) » et
 « Toutes les zones du secteur » (sans filtres, plancher < FL115, suffixe `_complet`).

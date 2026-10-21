@@ -282,7 +282,7 @@ const dmy=d=>`${pad(d.getUTCDate())}/${pad(d.getUTCMonth()+1)}/${d.getUTCFullYea
 const parseZ=s=>new Date(s.replace("Z",":00Z"));
 
 let SNAP=null, map, sectorLayer, targetMarker, groups={}, polys=[], result=null, pickMode=null;
-const F={fond:"Plan (Esri)",w:true,pays:{},alt:true,altFt:6500,cat:{"active":true,"SUP AIP - activables":true,"SUP AIP - non interprete":true,"SUP AIP - activable, non activee":false,"SUP AIP - inactive (horaires)":false,"info":false}};
+const F={fond:"Plan (Esri)",w:true,passe:false,pays:{},alt:true,altFt:6500,cat:{"active":true,"SUP AIP - activables":true,"SUP AIP - non interprete":true,"SUP AIP - activable, non activee":false,"SUP AIP - inactive (horaires)":false,"info":false}};
 const $=id=>document.getElementById(id);
 
 // « lire le SUP » devient un lien vers le PDF officiel du SIA
@@ -295,6 +295,7 @@ function popupHtml(z){
   const p=z.p;
   return `<div class="pop"><div><span class="t">${esc(p.titre||p.nom)}</span>${p.sous_titre?` <span class="s">${esc(p.sous_titre)}</span>`:""}</div>
   <div class="alt">${esc(altDisplay(p.plafond))}<br>${esc(altDisplay(p.plancher))}</div>
+  ${z.termine?`<div class="sl" style="color:var(--warn)">Créneau terminé</div>`:""}
   ${p.categorie===C_NA||p.categorie===C_IN?`<div class="sl" style="color:var(--muted)">Non active sur ce créneau</div>`:
   `<div>${p.categorie==="active"?"Active":"Activité possible"} du ${d1} au ${d2}</div>
   <div class="sl">${z.slots.map(([a,b])=>`${hm(a)} - ${hm(b)}`).join("<br>")} <small>UTC</small></div>`}
@@ -375,12 +376,14 @@ function renderOpts(){
      <label class="opt"><input type="checkbox" id="optAlt" data-f="alt" ${F.alt?"checked":""}><span>Masquer plancher ≥ FL</span>
        <input type="number" id="optAltV" data-f="altv" value="${F.altFt/100}" min="0" max="115" step="5" aria-label="Niveau de vol"></label>
      <div class="hint">${F.alt?`${nAlt} zone(s) du secteur au FL${F.altFt/100} ou plus, masquée(s) par ce filtre`:"Filtre d'altitude inactif"}</div>     <div class="optgrp"><span>Catégories</span>${GROUPES_AFF.map((g,i)=>g.siPresent&&!zones.some(z=>g.cats.includes(z.p.categorie))?"":`<label class="opt"><input type="checkbox" data-g="${i}" ${g.cats.every(c=>F.cat[c])?"checked":""}><span>${g.label}</span><em>${nCat(g)}</em></label>`).join("")}
-       <label class="opt"><input type="checkbox" id="optW" data-f="w" ${F.w?"checked":""}><span>Zones W et D : avertissements et zones dangereuses, VFR non interdit (voltige, parachutage, tirs…)</span><em>${nW}</em></label></div>`
+       <label class="opt"><input type="checkbox" id="optW" data-f="w" ${F.w?"checked":""}><span>Zones W et D : avertissements et zones dangereuses, VFR non interdit (voltige, parachutage, tirs…)</span><em>${nW}</em></label></div>
+     <div class="optgrp"><span>Créneaux</span><label class="opt"><input type="checkbox" id="optPasse" data-f="passe" ${F.passe?"checked":""}><span>Afficher aussi les créneaux terminés (marqués « terminé »)</span></label></div>`
     +(pk.length>1?`<div class="optgrp"><span>Pays</span>${pk.map(k=>`<label class="opt"><input type="checkbox" data-p="${esc(k)}" ${F.pays[k]!==false?"checked":""}><span>${esc(k)}</span><em>${pays[k]}</em></label>`).join("")}</div>`:"");
 }
 function onOpt(e){
   const t=e.target;
   if(t.dataset.f==="fond"){ setFond(t.value); saveOpts(); return; }
+  if(t.dataset.f==="passe"){ F.passe=t.checked; saveOpts(); compute(); renderOpts(); return; }
   if(t.dataset.f==="w") F.w=t.checked;
   else if(t.dataset.f==="alt") F.alt=t.checked;
   else if(t.dataset.f==="altv") F.altFt=Math.min(115,parseFloat(t.value)||0)*100;
@@ -390,9 +393,9 @@ function onOpt(e){
   saveOpts(); refreshVis();
   if(e.type==="change") renderOpts();     // compteurs ; pas pendant la saisie pour garder le curseur
 }
-function saveOpts(){ try{ localStorage.setItem("secteurVFR.opts",JSON.stringify({w:F.w,alt:F.alt,altFt:F.altFt,cat:F.cat,fond:F.fond})); }catch(e){} }
+function saveOpts(){ try{ localStorage.setItem("secteurVFR.opts",JSON.stringify({w:F.w,passe:F.passe,alt:F.alt,altFt:F.altFt,cat:F.cat,fond:F.fond})); }catch(e){} }
 function loadOpts(){ try{ const o=JSON.parse(localStorage.getItem("secteurVFR.opts")||"null"); if(!o) return;
-  for(const k of ["w","alt","altFt","fond"]) if(k in o) F[k]=o[k];
+  for(const k of ["w","passe","alt","altFt","fond"]) if(k in o) F[k]=o[k];
   // seules les categories qui existent encore sont reprises (les autres gardent leur valeur par defaut)
   if(o.cat) for(const c of Object.keys(F.cat)) if(typeof o.cat[c]==="boolean") F.cat[c]=o.cat[c];
 }catch(e){} }
@@ -436,7 +439,7 @@ function compute(){
   saveParams();
   const w0=new Date(`${P.jour}T${$("deb").value||"00:00"}:00Z`), w1raw=new Date(`${P.jour}T${$("fin").value||"23:59"}:00Z`);
   const w1=w1raw>w0?w1raw:new Date(+w1raw+864e5), now=new Date();
-  window._passe = w1<=now;     // creneau entierement passe : les creneaux termines sont retires, aucune zone
+  window._passe = w1<=now&&!F.passe;     // creneau entierement passe et creneaux termines masques : aucune zone
   const proj=projector(P.lat,P.lon), half=P.ouv/2;
   // Secteur : sommet + arc tous les 1 degre
   const sect=[[P.lat,P.lon]]; for(let b=P.axe-half;b<=P.axe+half+1e-9;b+=1) sect.push(dest(P.lat,P.lon,b,P.ray));
@@ -447,13 +450,13 @@ function compute(){
     const p=f.properties;
     if((p.plancher_ft||0)>=P.plaf*100) continue;
     const slots=[]; for(const [a,b] of p.creneaux){ const x=new Date(Math.max(+parseZ(a),+w0)), y=new Date(Math.min(+parseZ(b),+w1));
-      if(y>x&&y>now) slots.push([x,y]); }
+      if(y>x&&(F.passe||y>now)) slots.push([x,y]); }
     if(!slots.length) continue;
     const ring=f.geometry.coordinates[0], xy=ring.map(([lo,la])=>proj(la,lo));
     if(!polysIntersect(xy,sectXY)) continue;
     const cx=xy.reduce((s,q)=>s+q[0],0)/xy.length, cy=xy.reduce((s,q)=>s+q[1],0)/xy.length;
     let area=0; for(let i=0,j=xy.length-1;i<xy.length;j=i++) area+=(xy[j][0]+xy[i][0])*(xy[j][1]-xy[i][1]);
-    zones.push({p,f,slots,ll:ring,dist:Math.round(Math.hypot(cx,cy)/1000),brg:Math.round((Math.atan2(cx,cy)/D2R+360)%360),area:Math.abs(area/2)});
+    zones.push({p,f,slots,termine:slots.every(([,y])=>y<=now),ll:ring,dist:Math.round(Math.hypot(cx,cy)/1000),brg:Math.round((Math.atan2(cx,cy)/D2R+360)%360),area:Math.abs(area/2)});
   }
   const order=Object.fromEntries(CATS.map((c,i)=>[c,i]));
   zones.sort((a,b)=>(order[a.p.categorie]-order[b.p.categorie])||(a.dist-b.dist));
@@ -498,7 +501,7 @@ function renderList(){
   $("badge").textContent=zs.length;
   $("nAff").textContent=zs.length; $("nTout").textContent=result.zones.length;
   const nAct=zs.filter(z=>z.p.categorie==="active"&&!estW(z)).length, nZW=zs.filter(estW).length;
-  $("summary").innerHTML=(window._passe?`<div class="hint" style="color:var(--warn)"><b>Créneau terminé</b> : les zones ne sont affichées que pour un créneau à venir. Choisissez un autre jour dans l'onglet Secteur.</div>`:"")
+  $("summary").innerHTML=(window._passe?`<div class="hint" style="color:var(--warn)"><b>Créneau terminé</b> : les zones ne sont affichées que pour un créneau à venir. Choisissez un autre jour dans l'onglet Secteur, ou cochez « Afficher aussi les créneaux terminés » dans l'onglet Affichage.</div>`:"")
     +`<span class="chip act">${nAct} actives (interdites VFR)</span>`+(nZW?`<span class="chip" style="color:var(--amber)">${nZW} zones W et D</span>`:"")+`<span class="chip sup">${n(C_RADIO)} SUP activables</span>`+(n(C_VERIF)?`<span class="chip sup">${n(C_VERIF)} SUP non interprété(s)</span>`:"")
     +(hidden?`<span class="chip inf">${hidden} masquées par les filtres</span>`:"");
   // Rappel des filtres en cours (ils sont memorises par le navigateur d'une carte a l'autre)
@@ -512,7 +515,7 @@ function renderList(){
   $("voirFiltres").onclick=e=>{e.preventDefault(); setTab("affichage");};
   $("list").innerHTML=zs.map((z,i)=>{const p=z.p, c=catColor(p,k=>`var(${k})`);
     return `<button type="button" class="z" data-i="${result.zones.indexOf(z)}"><i style="background:${c}"></i>
-      <div><b>${esc(p.titre||p.nom)}</b><span>${esc(altDisplay(p.plancher))} – ${esc(altDisplay(p.plafond))} · ${z.slots.map(([a,b])=>hm(a)+"-"+hm(b)).join(" ")}Z</span></div>
+      <div><b>${esc(p.titre||p.nom)}</b><span>${esc(altDisplay(p.plancher))} – ${esc(altDisplay(p.plafond))} · ${z.slots.map(([a,b])=>hm(a)+"-"+hm(b)).join(" ")}Z${z.termine?" · terminé":""}</span></div>
       <em>${z.dist} km/${pad(z.brg,3)}°</em></button>`;}).join("")||`<div class="hint">Aucune zone dans ce secteur pour ce créneau.</div>`;
 }
 $("list").addEventListener("click",e=>{const b=e.target.closest(".z"); if(!b) return; const z=result.zones[+b.dataset.i];
