@@ -5,7 +5,9 @@ name: Releve horaire
 
 on:
   schedule:
-    - cron: "7 * * * *"          # toutes les heures a hh:07 UTC (GitHub peut decaler de quelques minutes)
+    # 3 essais par heure : GitHub retarde ou saute souvent des declenchements programmes. Un releve porte le nom
+    # de son heure (AAAA-MM-JJTHHZ.json) : les essais d'une meme heure se remplacent, 24 releves = 24 heures.
+    - cron: "7,27,47 * * * *"
   workflow_dispatch:             # bouton « Run workflow » dans l'onglet Actions
   push:
     branches: [main]

@@ -436,6 +436,7 @@ function compute(){
   saveParams();
   const w0=new Date(`${P.jour}T${$("deb").value||"00:00"}:00Z`), w1raw=new Date(`${P.jour}T${$("fin").value||"23:59"}:00Z`);
   const w1=w1raw>w0?w1raw:new Date(+w1raw+864e5), now=new Date();
+  window._passe = w1<=now;     // creneau entierement passe : les creneaux termines sont retires, aucune zone
   const proj=projector(P.lat,P.lon), half=P.ouv/2;
   // Secteur : sommet + arc tous les 1 degre
   const sect=[[P.lat,P.lon]]; for(let b=P.axe-half;b<=P.axe+half+1e-9;b+=1) sect.push(dest(P.lat,P.lon,b,P.ray));
@@ -497,7 +498,8 @@ function renderList(){
   $("badge").textContent=zs.length;
   $("nAff").textContent=zs.length; $("nTout").textContent=result.zones.length;
   const nAct=zs.filter(z=>z.p.categorie==="active"&&!estW(z)).length, nZW=zs.filter(estW).length;
-  $("summary").innerHTML=`<span class="chip act">${nAct} actives (interdites VFR)</span>`+(nZW?`<span class="chip" style="color:var(--amber)">${nZW} zones W et D</span>`:"")+`<span class="chip sup">${n(C_RADIO)} SUP activables</span>`+(n(C_VERIF)?`<span class="chip sup">${n(C_VERIF)} SUP non interprété(s)</span>`:"")
+  $("summary").innerHTML=(window._passe?`<div class="hint" style="color:var(--warn)"><b>Créneau terminé</b> : les zones ne sont affichées que pour un créneau à venir. Choisissez un autre jour dans l'onglet Secteur.</div>`:"")
+    +`<span class="chip act">${nAct} actives (interdites VFR)</span>`+(nZW?`<span class="chip" style="color:var(--amber)">${nZW} zones W et D</span>`:"")+`<span class="chip sup">${n(C_RADIO)} SUP activables</span>`+(n(C_VERIF)?`<span class="chip sup">${n(C_VERIF)} SUP non interprété(s)</span>`:"")
     +(hidden?`<span class="chip inf">${hidden} masquées par les filtres</span>`:"");
   // Rappel des filtres en cours (ils sont memorises par le navigateur d'une carte a l'autre)
   const off=GROUPES_AFF.filter(g=>!g.cats.every(c=>F.cat[c])
@@ -590,6 +592,9 @@ function initSnapshot(s){
   const days=[]; for(let d=new Date(Date.UTC(f0.getUTCFullYear(),f0.getUTCMonth(),f0.getUTCDate())); d<f1; d=new Date(+d+864e5)) days.push(d.toISOString().slice(0,10));
   $("jour").innerHTML=days.map(d=>`<option value="${d}">${d.split("-").reverse().join("/")}</option>`).join("");
   const today=new Date().toISOString().slice(0,10); if(days.includes(today)) $("jour").value=today;
+  // Creneau de jour (SS+30) deja termine : le jour propose est le lendemain
+  { const {lat,lon}=params(), i=days.indexOf(today);
+    if(i>=0&&i+1<days.length&&!isNaN(lat)&&!isNaN(lon)&&new Date()>new Date(+sunTimes(today,lat,lon)[1]+18e5)) $("jour").value=days[i+1]; }
   if(PRESET){
     // Carte produite par zones_secteur.py : secteur et creneau du calcul, zones du secteur seulement
     for(const k of ["lat","lon","axe","ouv","ray"]) $(k).value=PRESET[k];

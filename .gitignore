@@ -12,3 +12,6 @@ releves/
 __pycache__/
 *.pyc
 *.tmp
+
+# Analyses ponctuelles
+analyses/
