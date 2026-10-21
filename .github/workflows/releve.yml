@@ -1,0 +1,68 @@
+# Releve horaire des zones actives sur la France, publie sur GitHub Pages.
+# Le site contient la page interactive (index.html), le dernier releve (latest.json) et les 24 derniers releves.
+# Si le releve echoue ou est incomplet, rien n'est publie : la version en ligne reste la precedente.
+name: Releve horaire
+
+on:
+  schedule:
+    - cron: "7 * * * *"          # toutes les heures a hh:07 UTC (GitHub peut decaler de quelques minutes)
+  workflow_dispatch:             # bouton « Run workflow » dans l'onglet Actions
+  push:
+    branches: [main]
+    paths: ["*.py", "carte_template.html", "zones_complements.txt", "requirements.txt", ".github/workflows/releve.yml"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: releve
+  cancel-in-progress: false
+
+jobs:
+  releve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # PDF des SUP AIP et bases OpenAir deja telecharges (evite de tout retelecharger chaque heure)
+      - uses: actions/cache@v4
+        with:
+          path: cache
+          key: cache-${{ github.run_id }}
+          restore-keys: cache-
+
+      - name: Releves precedents (depuis le site en ligne)
+        run: |
+          mkdir -p site
+          base="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}"
+          if curl -fsSL "$base/index.json" -o /tmp/index.json; then
+            for f in $(jq -r '.releves[]' /tmp/index.json); do
+              curl -fsSL "$base/$f" -o "site/$f" || echo "absent : $f"
+            done
+          else
+            echo "Pas encore de site en ligne : premier releve."
+          fi
+          ls site
+
+      - name: Releve France
+        run: python releve_france.py --dossier site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

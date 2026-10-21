@@ -2,6 +2,17 @@
 
 Outil d'aide à la préparation : **ne remplace pas le briefing officiel**.
 
+## En ligne
+
+Page interactive : **https://fredododo.github.io/secteur-vfr/** (saisie du sommet et de l'axe, carte, filtres,
+export OpenAir), mise à jour toutes les heures.
+
+Le relevé est fait par l'Action GitHub `.github/workflows/releve.yml` : toutes les heures (hh:07 UTC), à la main
+(onglet Actions → « Relevé horaire » → Run workflow) et après chaque modification du code. Elle récupère les relevés
+déjà en ligne, lance `releve_france.py` (24 relevés conservés) et publie le dossier sur GitHub Pages. Un relevé en
+échec ou incomplet n'est pas publié : la version en ligne reste la précédente. GitHub suspend les tâches
+programmées d'un dépôt public sans activité pendant 60 jours : les réactiver depuis l'onglet Actions.
+
 ## Lancer
 
 ```bash
