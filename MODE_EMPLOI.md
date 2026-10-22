@@ -1,0 +1,69 @@
+# Secteur VFR — mode d'emploi
+
+**Page :** https://fredododo.github.io/secteur-vfr/
+Sans compte ni installation : la page fonctionne dans n'importe quel navigateur, sur PC comme sur téléphone.
+
+> ⚠️ **Outil d'aide à la préparation : il ne remplace pas le briefing officiel** (SOFIA, NOTAM, SUP AIP, carte AZBA).
+> Vérifiez toujours avant le vol.
+
+## À quoi ça sert
+
+La page affiche les **zones aériennes actives** (NOTAM, SUP AIP dont les ZRT, RTBA) dans un **secteur en forme de
+cône** qui part d'un point de décollage dans une direction, et permet de les **exporter au format OpenAir** (XCTrack,
+FlySkyHy, SeeYou…).
+
+Les données sont relevées **toutes les heures** sur SOFIA-Briefing (SIA/DGAC), pour toute la France, sur les 48 h
+suivantes. Seules les zones dont le plancher est **sous le FL115** sont relevées.
+
+## 1. Onglet « Secteur » : définir le vol
+
+- **Sommet** (point de départ) :
+  - choisissez un **site** dans la liste ;
+  - ou saisissez la **latitude** et la **longitude** : `49.0361` ou `490210N` ;
+  - ou cliquez sur **« Placer le sommet sur la carte »**.
+- **Axe** : direction du vol, en degrés vrais. Saisissez-le, ou cliquez sur **« Viser un point sur la carte »** puis
+  sur la destination.
+- **Ouverture** (30° par défaut) et **rayon** (400 km par défaut).
+- **Jour** et **créneau**, en **UTC**. Par défaut : du lever du soleil −30 min au coucher +30 min. Une fois ce
+  créneau passé, la page propose le lendemain.
+- Cliquez sur **« Calculer le secteur »**.
+
+## 2. Onglet « Affichage » : filtrer
+
+- **Fond de carte** : plan, IGN, topographique…
+- **Masquer plancher ≥ FL** : masque les zones trop hautes pour vous (FL65 par défaut).
+- **Catégories** — le chiffre à droite de chaque case indique combien de zones elle fait apparaître :
+  - **Zones actives (interdites VFR)** : zones réglementées activées par NOTAM ou par les horaires d'un SUP ;
+  - **SUP activables** : zones activables sans NOTAM ; l'activité réelle se connaît par radio ou par téléphone
+    (numéros dans la fiche de la zone) ;
+  - **SUP inactifs** et **NOTAM d'information** : masqués par défaut ;
+  - **Zones W et D** : voltige, parachutage, drones, zones dangereuses. Le VFR n'y est pas interdit, mais vigilance.
+- **Pays** : France, Belgique, Allemagne…
+- **Afficher aussi les créneaux terminés** : décochée, la page ne montre que les activités en cours ou à venir ;
+  cochée, elle garde les activités déjà terminées depuis l'heure du relevé, marquées « terminé ».
+
+Vos réglages sont gardés par votre navigateur d'une visite à l'autre.
+
+## 3. Onglet « Zones » : consulter
+
+- La **liste** donne les zones affichées, avec leurs limites verticales et leurs horaires du jour. Un clic sur une
+  zone la centre sur la carte.
+- Un **clic sur la carte** liste toutes les zones présentes en ce point. La fiche donne le NOTAM, les horaires, les
+  fréquences, les téléphones, et un lien **« lire le SUP »** vers le PDF officiel.
+- **« ✕ Carte en grand »** masque le panneau pour voir la carte en plein écran.
+
+## 4. Onglet « Export » : fichier OpenAir
+
+- **Zones affichées (après filtres)** : exactement ce que montre la carte.
+- **Toutes les zones du secteur** : tout, sans tenir compte des filtres.
+
+Le fichier `.txt` garde les cercles et arcs d'origine ; la première fréquence de la zone est reprise dans les champs
+`AF`/`AG`.
+
+## Bon à savoir
+
+- L'**âge du relevé** est indiqué en haut (« il y a 20 min »). Au-delà de 2 h, la mise à jour a eu un incident.
+- Tous les horaires sont en **UTC** : heure française = UTC + 1 h en hiver, UTC + 2 h en été.
+- Les **zones belges** viennent d'une base non officielle (LVZC) complétée par l'AIP belge ; c'est indiqué dans la
+  fiche de chaque zone.
+- Une zone désactivée **avant l'heure du relevé** n'y figure plus, même avec « créneaux terminés ».

@@ -4,7 +4,7 @@ Outil d'aide à la préparation : **ne remplace pas le briefing officiel**.
 
 ## En ligne
 
-Page interactive : **https://fredododo.github.io/secteur-vfr/** (saisie du sommet et de l'axe, carte, filtres,
+Page interactive : **https://fredododo.github.io/secteur-vfr/** — mode d'emploi : [MODE_EMPLOI.md](MODE_EMPLOI.md) (saisie du sommet et de l'axe, carte, filtres,
 export OpenAir), mise à jour toutes les heures.
 
 Le relevé est fait par l'Action GitHub `.github/workflows/releve.yml`. Elle est déclenchée :

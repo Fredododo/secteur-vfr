@@ -36,6 +36,8 @@ body{background:var(--paper);color:var(--ink);font:14px/1.4 var(--f-ui);display:
 #map{flex:1 1 auto;height:100%;min-width:0}
 h1{font-size:20px;font-weight:700;margin:0;padding-top:14px;letter-spacing:.01em;text-wrap:balance}
 h1 small{display:block;font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.aide{font-size:13px;font-weight:600;color:var(--focus);text-decoration:none;justify-self:start}
+.aide:hover{text-decoration:underline}
 .snap{font:12px/1.35 var(--f-data);color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:6px 8px}
 .snap.old{color:var(--warn);border-color:var(--warn)}
 fieldset{border:0;border-top:1px solid var(--line);margin:0;padding:10px 0 0;display:grid;gap:8px}
@@ -120,6 +122,7 @@ body.collapsed #panel{display:none}
 <body>
 <aside id="panel">
   <h1><small>Préparation VFR</small>Zones actives dans un secteur</h1>
+  <a class="aide" href="https://github.com/Fredododo/secteur-vfr/blob/main/MODE_EMPLOI.md" target="_blank" rel="noopener">Mode d'emploi ↗</a>
   <div id="snap" class="snap">Chargement du relevé…</div>
 
   <nav class="tabs" role="tablist" aria-label="Préparation">
