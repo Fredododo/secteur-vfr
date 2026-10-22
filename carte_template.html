@@ -391,8 +391,9 @@ function renderOpts(){
        <select id="optFond" data-f="fond">${Object.keys(BASES).map(k=>`<option ${k===F.fond?"selected":""}>${esc(k)}</option>`).join("")}</select></label>
      <label class="opt"><input type="checkbox" id="optAlt" data-f="alt" ${F.alt?"checked":""}><span>Masquer plancher ≥ FL</span>
        <input type="number" id="optAltV" data-f="altv" value="${F.altFt/100}" min="0" max="115" step="5" aria-label="Niveau de vol"></label>
-     <div class="hint">${F.alt?`${nAlt} zone(s) du secteur au FL${F.altFt/100} ou plus, masquée(s) par ce filtre`:"Filtre d'altitude inactif"}</div>     <div class="optgrp"><span>Catégories</span>${GROUPES_AFF.map((g,i)=>g.siPresent&&!zones.some(z=>g.cats.includes(z.p.categorie))?"":`<label class="opt"><input type="checkbox" data-g="${i}" ${g.cats.every(c=>F.cat[c])?"checked":""}><span>${g.label}</span><em>${nCat(g)}</em></label>`).join("")}
-       <label class="opt"><input type="checkbox" id="optW" data-f="w" ${F.w?"checked":""}><span>Zones W et D : avertissements et zones dangereuses, VFR non interdit (voltige, parachutage, tirs…)</span><em>${nW}</em></label></div>
+     <div class="hint">${F.alt?`${nAlt} zone(s) du secteur au FL${F.altFt/100} ou plus, masquée(s) par ce filtre`:"Filtre d'altitude inactif"}</div>     <div class="optgrp"><span>Catégories</span>${GROUPES_AFF.map((g,i)=>(g.siPresent&&!zones.some(z=>g.cats.includes(z.p.categorie))?"":`<label class="opt"><input type="checkbox" data-g="${i}" ${g.cats.every(c=>F.cat[c])?"checked":""}><span>${g.label}</span><em>${nCat(g)}</em></label>`)
+         // « Zones W et D » juste apres « SUP activables »
+         +(g.cats.includes(C_RADIO)?`<label class="opt"><input type="checkbox" id="optW" data-f="w" ${F.w?"checked":""}><span>Zones W et D : avertissements et zones dangereuses, VFR non interdit (voltige, parachutage, tirs…)</span><em>${nW}</em></label>`:"")).join("")}</div>
      <div class="optgrp"><span>Créneaux</span><label class="opt"><input type="checkbox" id="optPasse" data-f="passe" ${F.passe?"checked":""}><span>Afficher aussi les créneaux terminés (marqués « terminé »)</span></label></div>`
     +(pk.length>1?`<div class="optgrp"><span>Pays</span>${pk.map(k=>`<label class="opt"><input type="checkbox" data-p="${esc(k)}" ${F.pays[k]!==false?"checked":""}><span>${esc(k)}</span><em>${pays[k]}</em></label>`).join("")}</div>`:"");
 }
