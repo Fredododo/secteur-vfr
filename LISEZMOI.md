@@ -5,13 +5,20 @@ Outil d'aide à la préparation : **ne remplace pas le briefing officiel**.
 ## En ligne
 
 Page interactive : **https://fredododo.github.io/secteur-vfr/** (saisie du sommet et de l'axe, carte, filtres,
-export OpenAir), mise à jour toutes les heures (3 essais par heure).
+export OpenAir), mise à jour toutes les heures.
 
-Le relevé est fait par l'Action GitHub `.github/workflows/releve.yml` : à hh:07, hh:27 et hh:47 UTC (GitHub saute souvent des déclenchements programmés ; les essais d'une même heure se remplacent), à la main
-(onglet Actions → « Relevé horaire » → Run workflow) et après chaque modification du code. Elle récupère les relevés
-déjà en ligne, lance `releve_france.py` (24 relevés conservés) et publie le dossier sur GitHub Pages. Un relevé en
-échec ou incomplet n'est pas publié : la version en ligne reste la précédente. GitHub suspend les tâches
-programmées d'un dépôt public sans activité pendant 60 jours : les réactiver depuis l'onglet Actions.
+Le relevé est fait par l'Action GitHub `.github/workflows/releve.yml`. Elle est déclenchée :
+- toutes les heures à hh:05 par **cron-job.org** (compte gratuit), qui appelle l'API GitHub
+  `POST /repos/Fredododo/secteur-vfr/actions/workflows/releve.yml/dispatches` avec le corps `{"ref":"main"}` et un
+  jeton GitHub *fine-grained* limité à ce dépôt, permission **Actions : Read and write** seulement (jeton valable
+  un an : le renouveler sur GitHub puis le remplacer dans l'en-tête `Authorization` de la tâche cron-job.org) ;
+- en secours par la programmation de GitHub à hh:37 (souvent retardée ou sautée) ;
+- à la main (onglet Actions → « Releve horaire » → Run workflow) et après chaque modification du code.
+
+Elle récupère les relevés déjà en ligne, lance `releve_france.py` (24 relevés conservés ; deux relevés d'une même
+heure se remplacent) et publie le dossier sur GitHub Pages. Un relevé en échec ou incomplet n'est pas publié : la
+version en ligne reste la précédente. GitHub suspend la programmation interne d'un dépôt public sans activité
+pendant 60 jours (le déclenchement par cron-job.org continue de fonctionner).
 
 ## Lancer
 

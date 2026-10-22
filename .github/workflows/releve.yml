@@ -4,11 +4,12 @@
 name: Releve horaire
 
 on:
+  # Declenchement principal : cron-job.org appelle workflow_dispatch toutes les heures a hh:05.
+  # Secours : la programmation de GitHub (souvent retardee ou sautee) a hh:37. Un releve porte le nom de son heure
+  # (AAAA-MM-JJTHHZ.json) : deux releves d'une meme heure se remplacent, 24 releves = 24 heures.
   schedule:
-    # 3 essais par heure : GitHub retarde ou saute souvent des declenchements programmes. Un releve porte le nom
-    # de son heure (AAAA-MM-JJTHHZ.json) : les essais d'une meme heure se remplacent, 24 releves = 24 heures.
-    - cron: "7,27,47 * * * *"
-  workflow_dispatch:             # bouton « Run workflow » dans l'onglet Actions
+    - cron: "37 * * * *"
+  workflow_dispatch:             # cron-job.org, ou bouton « Run workflow » dans l'onglet Actions
   push:
     branches: [main]
     paths: ["*.py", "carte_template.html", "zones_complements.txt", "requirements.txt", ".github/workflows/releve.yml"]
