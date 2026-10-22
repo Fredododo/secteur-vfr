@@ -69,7 +69,8 @@ Générées à chaque relevé à partir de `carte_template.html` :
 - `index.html` lit `latest.json` à côté d'elle : version à héberger (GitHub Pages).
 
 La page a quatre onglets :
-- **Secteur** : sommet (site, coordonnées décimales ou DMS, ou clic sur la carte), axe (degrés ou « viser un point »),
+- **Secteur** : sommet (site cherché par nom, commune ou code postal dans mes sites et la liste officielle FFVL,
+  coordonnées décimales ou DMS, ou clic sur la carte), axe (degrés ou « viser un point »),
   ouverture, rayon, jour (dans la fenêtre du relevé), créneau (SR−30 / SS+30 au sommet par défaut) ;
 - **Affichage** : fond de carte, filtres (plancher ≥ FL, catégories, zones W et D, pays), « Afficher aussi les créneaux
   terminés » (décochée par défaut : seules les activités en cours ou à venir sont montrées ; cochée, les créneaux passés
@@ -165,6 +166,16 @@ Zones recopiées à la main depuis l'AIP officiel quand elles manquent dans les 
 Chaque zone porte aussi `* Pays : …` : elle n'est reprise que pour un NOTAM du même pays.
 Contenu actuel (Belgique, AIP valide à partir du 01/10/2026) : TSA26A ARDENNES 01 (ENR 5.2, FL95-UNL) et
 EBR17D LOMBARDSIJDE SECTOR DELTA (ENR 5.1, SFC-500 ft AMSL, polygone + arc de 2,5 NM, bord sud sur la plage).
+
+## Sites de vol libre (FFVL)
+
+La liste des sites vient du jeu de données officiel « Terrains de pratique de la FFVL » publié chaque nuit sur
+data.gouv.fr (Licence Ouverte v2, source citée dans la page). `sites_ffvl()` le télécharge (cache 7 jours,
+`cache/ffvl_terrains.json`) et garde les sites de **décollage** et de **treuil** pour le parapente et le delta
+(~1 400 sur ~2 550 terrains : les atterrissages et les spots de kite sont écartés), avec altitude, orientations
+et statut (autorisation requise, interdit). Le relevé publie `sites.json` à côté de `index.html` ; les pages
+autonomes (`carte.html`, cartes de `zones_secteur.py`) intègrent la liste. Mes sites (constante `SITES` de
+`carte_template.html`) sont proposés en premier.
 
 ## Fond de carte
 

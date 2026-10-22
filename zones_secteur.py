@@ -831,6 +831,51 @@ def _arc(center, r_m, az1, az2, cw):
     return pts
 
 
+FFVL_DATASETS = "https://www.data.gouv.fr/api/1/organizations/federation-francaise-de-vol-libre/datasets/?page_size=50"
+
+
+def sites_ffvl(cache_dir):
+    """Sites de decollage et de treuil (parapente, delta) de la liste officielle de la FFVL, publiee chaque nuit sur
+    data.gouv.fr (« Terrains de pratique de la FFVL », Licence Ouverte v2). Mise en cache 7 jours.
+    Liste compacte pour la page : n nom, v commune, cp, la/lo, z altitude, o orientations, t 'T' si treuil seul,
+    s statut ('' actif, 'A' autorisation requise, 'I' interdit). None si la liste est indisponible."""
+    os.makedirs(cache_dir, exist_ok=True)
+    path = os.path.join(cache_dir, "ffvl_terrains.json")
+    fresh = os.path.exists(path) and (dt.datetime.now().timestamp() - os.path.getmtime(path)) < 7 * 86400
+    if not fresh:
+        try:
+            ds = requests.get(FFVL_DATASETS, timeout=60).json()["data"]
+            ds = next(d for d in ds if d["title"].lower().startswith("terrains de pratique"))
+            url = next(r["url"] for r in ds["resources"] if r["url"].endswith(".json"))
+            r = requests.get(url, timeout=120)
+            r.raise_for_status()
+            r.json()                                     # contenu verifie avant de remplacer le cache
+            with open(path + ".tmp", "wb") as f:
+                f.write(r.content)
+            os.replace(path + ".tmp", path)
+        except Exception as e:
+            print(f"  (sites FFVL indisponibles : {e})")
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        terrains = json.load(f)
+    out = []
+    for t in terrains:
+        usages, fonctions = t.get("possible_usages_text") or "", t.get("flying_functions_text") or ""
+        if not re.search(r"parapente|delta", usages) or not re.search(r"d.collage|treuil", fonctions):
+            continue
+        if t.get("latitude") is None or t.get("longitude") is None:
+            continue
+        st = t.get("status") or ""
+        out.append({"n": re.sub(r"\s+", " ", t.get("toponym") or "").strip(), "v": (t.get("city") or "").strip(),
+                    "cp": t.get("zip") or "", "la": round(float(t["latitude"]), 5), "lo": round(float(t["longitude"]), 5),
+                    "z": t.get("altitude"), "o": (t.get("wind_orientations_ok") or "").replace(";", " "),
+                    "t": "T" if "treuil" in fonctions and not re.search(r"d.collage", fonctions) else "",
+                    "s": "I" if st.startswith("interdit") else "A" if "autorisation" in st else ""})
+    out.sort(key=lambda s: s["n"])
+    return out
+
+
 def load_airspace_db(cache_dir):
     os.makedirs(cache_dir, exist_ok=True)
     path = os.path.join(cache_dir, "france_planeur-net.txt")
@@ -1909,7 +1954,7 @@ def main():
     preset = {"lat": round(lat0, 6), "lon": round(lon0, 6), "axe": a.axe, "ouv": a.ouverture, "ray": a.rayon_km,
               "jour": day.isoformat(), "deb": f"{w0:%H:%M}", "fin": f"{w1:%H:%M}", "source": source}
     with open(os.path.join(a.sortie, f"carte_{tag}.html"), "w", encoding="utf-8") as f:
-        f.write(page_html(snap, preset))
+        f.write(page_html(snap, preset, sites_ffvl(os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache"))))
 
     for cat in order:
         sel = [r for r in rows if r["categorie"] == cat]
@@ -1940,14 +1985,17 @@ def zone_feature(r):
     return {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [pts]}, "properties": props}
 
 
-def page_html(snap, preset=None):
-    """Page interactive (carte_template.html) avec le releve integre et, en option, un secteur pre-regle."""
+def page_html(snap, preset=None, sites=None):
+    """Page interactive (carte_template.html) avec le releve integre et, en option, un secteur pre-regle et la
+    liste des sites FFVL (page autonome)."""
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "carte_template.html"), encoding="utf-8") as f:
         tpl = f.read()
     js = lambda o: json.dumps(o, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")  # noqa
     page = tpl.replace("/*__RELEVE__*/null", js(snap))
     if preset:
         page = page.replace("/*__PRESET__*/null", js(preset))
+    if sites:
+        page = page.replace("/*__SITES__*/null", js(sites))
     return page
 
 

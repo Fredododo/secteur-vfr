@@ -18,7 +18,11 @@ suivantes. Seules les zones dont le plancher est **sous le FL115** sont relevée
 ## 1. Onglet « Secteur » : définir le vol
 
 - **Sommet** (point de départ) :
-  - choisissez un **site** dans la liste ;
+  - tapez une partie du **nom du site, de la commune ou du code postal** dans le champ **Site** (sans vous soucier
+    des accents ni des majuscules), puis choisissez dans la liste. Elle contient les ~1 400 sites de **décollage et de
+    treuil** de la liste officielle de la **FFVL** (data.gouv.fr), avec altitude, orientations et, le cas échéant,
+    « autorisation requise » ou « interdit ». Exemple : Jeufosse y figure sous son nom officiel
+    « NOTRE-DAME-DE-LA-MER - LES-GRANDES-BRUYERES » ;
   - ou saisissez la **latitude** et la **longitude** : `49.0361` ou `490210N` ;
   - ou cliquez sur **« Placer le sommet sur la carte »**.
 - **Axe** : direction du vol, en degrés vrais. Saisissez-le, ou cliquez sur **« Viser un point sur la carte »** puis

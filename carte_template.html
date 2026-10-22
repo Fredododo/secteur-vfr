@@ -56,6 +56,12 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 .btn.primary{background:var(--magenta);border-color:var(--magenta);color:#fff;font-weight:600;padding:8px 12px}
 .btn.primary:hover{filter:brightness(1.08)}
 .tools{display:flex;flex-wrap:wrap;gap:6px}
+.sitelist{border:1px solid var(--line);border-radius:4px;background:var(--paper);max-height:270px;overflow-y:auto;display:grid}
+.sitelist button{display:grid;gap:1px;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:5px 8px;cursor:pointer;font-size:13px;min-width:0}
+.sitelist button:hover,.sitelist button[aria-selected="true"]{background:var(--line)}
+.sitelist small{color:var(--muted);font-size:11px;overflow-wrap:anywhere}
+.sitelist .warn{color:var(--warn);font-weight:600}
+.sitelist .vide{padding:6px 8px;font-size:12px;color:var(--muted)}
 .hint{font-size:12px;color:var(--muted)}
 .summary{display:flex;flex-wrap:wrap;gap:6px}
 .chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600;border:1px solid currentColor}
@@ -136,9 +142,12 @@ body.collapsed #panel{display:none}
   <form id="form" autocomplete="off">
     <fieldset>
       <legend>Sommet</legend>
-      <label class="f">Site
-        <select id="site"><option value="">Coordonnées libres</option></select>
+      <label class="f">Site (nom, commune ou code postal)
+        <input id="site" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="siteList"
+          placeholder="ex. Comté, Planfait, 74…" autocomplete="off" spellcheck="false">
       </label>
+      <div id="siteList" class="sitelist" role="listbox" aria-label="Sites" hidden></div>
+      <div class="hint" id="siteHint"></div>
       <div class="row">
         <label class="f">Latitude <input id="lat" type="text" value="49.0361" placeholder="49.0361 ou 490210N"></label>
         <label class="f">Longitude <input id="lon" type="text" value="1.5394" placeholder="1.5394 ou 0013222E"></label>
@@ -211,6 +220,9 @@ body.collapsed #panel{display:none}
 /* ---------- Donnees : releve integre (page autonome) ou latest.json (page hebergee) ---------- */
 const EMBED = /*__RELEVE__*/null;
 const PRESET = /*__PRESET__*/null;     // secteur pre-regle (carte generee par zones_secteur.py)
+// Sites FFVL (decollage et treuil, liste officielle data.gouv.fr) : integres (page autonome) ou sites.json (page hebergee)
+let SITES_FFVL = /*__SITES__*/null;
+// Mes sites : proposes en premier
 const SITES = [
   {nom:"Jeufosse (78)", lat:49.0361, lon:1.5394},
   {nom:"Mont de la Comté (62)", lat:50.423588, lon:2.50259},
@@ -559,11 +571,56 @@ $("dlAff").onclick=()=>result&&save(`zones_${tag()}.txt`,oaZones(false));
 $("dlComplet").onclick=()=>result&&save(`zones_${tag()}_complet.txt`,oaZones(true));
 
 /* ---------- Formulaire ---------- */
-const KEYS=["lat","lon","axe","ouv","ray"];
+const KEYS=["lat","lon","axe","ouv","ray","site"];
 function saveParams(){ try{ localStorage.setItem("secteurVFR",JSON.stringify(Object.fromEntries(KEYS.map(k=>[k,$(k).value])))); }catch(e){} }
 function loadParams(){ try{ const o=JSON.parse(localStorage.getItem("secteurVFR")||"null"); if(o) for(const k of KEYS) if(o[k]!=null) $(k).value=o[k]; }catch(e){} }
-for(const s of SITES){ const o=document.createElement("option"); o.value=s.nom; o.textContent=s.nom; $("site").appendChild(o); }
-$("site").onchange=()=>{ const s=SITES.find(x=>x.nom===$("site").value); if(s){ $("lat").value=s.lat; $("lon").value=s.lon; updateSunDefaults(true); compute(); } };
+/* ---------- Choix du site : recherche dans mes sites et la liste FFVL ---------- */
+// Recherche sans accents ni casse ; tous les mots saisis doivent apparaitre dans le nom, la commune ou le code postal
+const norm=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[-'’_.,()]/g," ");
+let siteRes=[], siteSel=-1;
+function sitesHint(){ $("siteHint").textContent=SITES_FFVL?`${SITES_FFVL.length} sites de décollage et de treuil de la FFVL (liste officielle, data.gouv.fr).`
+  :"Liste FFVL indisponible : mes sites seulement, ou saisir les coordonnées."; }
+function searchSites(q){
+  const w=norm(q).split(/\s+/).filter(Boolean);
+  const all=[...SITES.map(s=>({n:s.nom,la:s.lat,lo:s.lon,fav:true})),...(SITES_FFVL||[])];
+  if(!w.length) return all.filter(s=>s.fav);
+  const q0=w.join(" ");
+  return all.filter(s=>{ s._k??=norm(`${s.n} ${s.v||""} ${s.cp||""}`); return w.every(x=>s._k.includes(x)); })
+    .sort((a,b)=>(b.fav?1:0)-(a.fav?1:0)||(norm(b.n).startsWith(q0)?1:0)-(norm(a.n).startsWith(q0)?1:0)||a.n.localeCompare(b.n));
+}
+function siteDesc(s){
+  if(s.fav) return "Mes sites";
+  return [esc(s.v), s.z!=null?`${s.z} m`:"", s.o?`orient. ${esc(s.o)}`:"", s.t==="T"?"treuil":"",
+    s.s==="I"?`<span class="warn">interdit</span>`:s.s==="A"?`<span class="warn">autorisation requise</span>`:""].filter(Boolean).join(" · ");
+}
+function showSites(open){
+  const L=$("siteList"); L.hidden=!open; $("site").setAttribute("aria-expanded",open);
+  if(!open) return;
+  const MAX=40, r=siteRes.slice(0,MAX);
+  L.innerHTML=r.length?r.map((s,i)=>`<button type="button" role="option" data-i="${i}" aria-selected="${i===siteSel}"><span>${esc(s.n)}</span><small>${siteDesc(s)}</small></button>`).join("")
+    +(siteRes.length>MAX?`<div class="vide">${siteRes.length-MAX} autres sites : précisez la recherche</div>`:"")
+    :`<div class="vide">Aucun site trouvé</div>`;
+  L.querySelector('[aria-selected="true"]')?.scrollIntoView({block:"nearest"});
+}
+function chooseSite(s){
+  $("site").value=s.n; $("lat").value=s.la; $("lon").value=s.lo; window._target=null;
+  showSites(false); updateSunDefaults(true); compute();
+}
+$("site").addEventListener("input",()=>{ siteRes=searchSites($("site").value); siteSel=siteRes.length?0:-1; showSites(true); });
+$("site").addEventListener("focus",()=>{ siteRes=searchSites($("site").value); siteSel=-1; showSites(true); });
+$("site").addEventListener("blur",()=>showSites(false));
+$("site").addEventListener("keydown",e=>{
+  if($("siteList").hidden) return;
+  const n=Math.min(siteRes.length,40);
+  if(e.key==="ArrowDown"&&n){ e.preventDefault(); siteSel=(siteSel+1)%n; showSites(true); }
+  else if(e.key==="ArrowUp"&&n){ e.preventDefault(); siteSel=(siteSel-1+n)%n; showSites(true); }
+  else if(e.key==="Enter"){ e.preventDefault(); if(siteRes[Math.max(siteSel,0)]) chooseSite(siteRes[Math.max(siteSel,0)]); }
+  else if(e.key==="Escape"){ showSites(false); }
+});
+$("siteList").addEventListener("mousedown",e=>e.preventDefault());   // garde le focus : le clic choisit le site
+$("siteList").addEventListener("click",e=>{ const b=e.target.closest("[data-i]"); if(b) chooseSite(siteRes[+b.dataset.i]); });
+sitesHint();
+if(!SITES_FFVL&&!EMBED) fetch("sites.json").then(r=>r.ok?r.json():null).then(d=>{ if(d){ SITES_FFVL=d; sitesHint(); } }).catch(()=>{});
 $("pickApex").onclick=()=>setPick(pickMode==="apex"?null:"apex");
 $("pickTarget").onclick=()=>setPick(pickMode==="target"?null:"target");
 $("jour").onchange=()=>{ updateSunDefaults(true); compute(); };

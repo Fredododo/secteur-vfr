@@ -97,11 +97,15 @@ def merge_slots(slots):
 
 
 def ecrire_pages(snap, dossier):
-    """Page interactive : carte.html (releve integre, autonome, a partager) et index.html (lit latest.json,
-    pour l'hebergement en ligne)."""
+    """Page interactive : carte.html (releve et sites integres, autonome, a partager), index.html (lit latest.json
+    et sites.json, pour l'hebergement en ligne) et sites.json (sites FFVL)."""
     with open(os.path.join(HERE, "carte_template.html"), encoding="utf-8") as f:
         tpl = f.read()
-    for name, content in (("carte.html", zs.page_html(snap)), ("index.html", tpl)):
+    sites = zs.sites_ffvl(os.path.join(HERE, "cache"))       # liste officielle FFVL des sites (choix du sommet)
+    pages = [("carte.html", zs.page_html(snap, sites=sites)), ("index.html", tpl)]
+    if sites:
+        pages.append(("sites.json", json.dumps(sites, ensure_ascii=False, separators=(",", ":"))))
+    for name, content in pages:
         tmp = os.path.join(dossier, name + ".tmp")
         with open(tmp, "w", encoding="utf-8") as f:
             f.write(content)
