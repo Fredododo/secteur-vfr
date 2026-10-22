@@ -175,7 +175,8 @@ data.gouv.fr (Licence Ouverte v2, source citée dans la page). `sites_ffvl()` le
 (~1 400 sur ~2 550 terrains : les atterrissages et les spots de kite sont écartés), avec altitude, orientations
 et statut (autorisation requise, interdit). Le relevé publie `sites.json` à côté de `index.html` ; les pages
 autonomes (`carte.html`, cartes de `zones_secteur.py`) intègrent la liste. Mes sites (constante `SITES` de
-`carte_template.html`) sont proposés en premier.
+`carte_template.html`) sont proposés en premier. Au choix d'un site, l'axe proposé est la direction sous le vent :
+opposée à la moyenne circulaire de ses orientations de décollage (aucune proposition si elles s'opposent, N et S).
 
 ## Fond de carte
 

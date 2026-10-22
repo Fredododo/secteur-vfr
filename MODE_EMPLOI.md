@@ -25,8 +25,9 @@ suivantes. Seules les zones dont le plancher est **sous le FL115** sont relevée
     « NOTRE-DAME-DE-LA-MER - LES-GRANDES-BRUYERES » ;
   - ou saisissez la **latitude** et la **longitude** : `49.0361` ou `490210N` ;
   - ou cliquez sur **« Placer le sommet sur la carte »**.
-- **Axe** : direction du vol, en degrés vrais. Saisissez-le, ou cliquez sur **« Viser un point sur la carte »** puis
-  sur la destination.
+- **Axe** : direction du vol, en degrés vrais. Quand vous choisissez un site, la page propose l'axe **sous le vent**,
+  à l'opposé de ses orientations de décollage (site O-NO → 113°). Modifiez-le à la main ou cliquez sur
+  **« Viser un point sur la carte »** puis sur la destination.
 - **Ouverture** (30° par défaut) et **rayon** (400 km par défaut).
 - **Jour** et **créneau**, en **UTC**. Par défaut : du lever du soleil −30 min au coucher +30 min. Une fois ce
   créneau passé, la page propose le lendemain.
