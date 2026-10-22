@@ -22,7 +22,8 @@ suivantes. Seules les zones dont le plancher est **sous le FL115** sont relevée
     des accents ni des majuscules), puis choisissez dans la liste. Elle contient les ~1 400 sites de **décollage et de
     treuil** de la liste officielle de la **FFVL** (data.gouv.fr), avec altitude, orientations et, le cas échéant,
     « autorisation requise » ou « interdit ». Exemple : Jeufosse y figure sous son nom officiel
-    « NOTRE-DAME-DE-LA-MER - LES-GRANDES-BRUYERES » ;
+    « NOTRE-DAME-DE-LA-MER - LES-GRANDES-BRUYERES ». Pour changer de site, cliquez dans le champ (le texte est
+    sélectionné, la frappe le remplace) ou sur **✕** pour l'effacer ;
   - ou saisissez la **latitude** et la **longitude** : `49.0361` ou `490210N` ;
   - ou cliquez sur **« Placer le sommet sur la carte »**.
 - **Axe** : direction du vol, en degrés vrais. Quand vous choisissez un site, la page propose l'axe **sous le vent**,

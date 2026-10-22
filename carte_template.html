@@ -56,6 +56,10 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 .btn.primary{background:var(--magenta);border-color:var(--magenta);color:#fff;font-weight:600;padding:8px 12px}
 .btn.primary:hover{filter:brightness(1.08)}
 .tools{display:flex;flex-wrap:wrap;gap:6px}
+.sitebox{position:relative;display:block}
+.sitebox input{padding-right:30px}
+.siteclear{position:absolute;right:2px;top:50%;transform:translateY(-50%);width:26px;height:26px;border:0;background:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;border-radius:4px}
+.siteclear:hover{color:var(--ink);background:var(--line)}
 .sitelist{border:1px solid var(--line);border-radius:4px;background:var(--paper);max-height:270px;overflow-y:auto;display:grid}
 .sitelist button{display:grid;gap:1px;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:5px 8px;cursor:pointer;font-size:13px;min-width:0}
 .sitelist button:hover,.sitelist button[aria-selected="true"]{background:var(--line)}
@@ -143,8 +147,11 @@ body.collapsed #panel{display:none}
     <fieldset>
       <legend>Sommet</legend>
       <label class="f">Site (nom, commune ou code postal)
-        <input id="site" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="siteList"
-          placeholder="ex. Comté, Planfait, 74…" autocomplete="off" spellcheck="false">
+        <span class="sitebox">
+          <input id="site" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="siteList"
+            placeholder="ex. Comté, Planfait, 74…" autocomplete="off" spellcheck="false">
+          <button type="button" id="siteClear" class="siteclear" aria-label="Effacer le site" title="Effacer" hidden>✕</button>
+        </span>
       </label>
       <div id="siteList" class="sitelist" role="listbox" aria-label="Sites" hidden></div>
       <div class="hint" id="siteHint"></div>
@@ -222,12 +229,6 @@ const EMBED = /*__RELEVE__*/null;
 const PRESET = /*__PRESET__*/null;     // secteur pre-regle (carte generee par zones_secteur.py)
 // Sites FFVL (decollage et treuil, liste officielle data.gouv.fr) : integres (page autonome) ou sites.json (page hebergee)
 let SITES_FFVL = /*__SITES__*/null;
-// Mes sites : proposes en premier
-const SITES = [
-  {nom:"Jeufosse (78)", lat:49.0361, lon:1.5394, o:"NE"},
-  {nom:"Mont de la Comté (62)", lat:50.423588, lon:2.50259, o:"O NO"},
-  {nom:"Crucey (28)", lat:48.645, lon:1.09972},
-];
 
 /* ---------- Geodesie spherique (ecarts < 0,5 % avec l'ellipsoide sur 400 km) ---------- */
 const R = 6371008.8, D2R = Math.PI/180, NM = 1852;
@@ -416,7 +417,7 @@ function loadOpts(){ try{ const o=JSON.parse(localStorage.getItem("secteurVFR.op
 }catch(e){} }
 
 function onMapClick(e){
-  if(pickMode==="apex"){ $("lat").value=e.latlng.lat.toFixed(5); $("lon").value=e.latlng.lng.toFixed(5); $("site").value=""; setPick(null); compute(); return; }
+  if(pickMode==="apex"){ $("lat").value=e.latlng.lat.toFixed(5); $("lon").value=e.latlng.lng.toFixed(5); $("site").value=""; majClear(); setPick(null); compute(); return; }
   if(pickMode==="target"){ const la=parseCoord($("lat").value,true), lo=parseCoord($("lon").value,false);
     $("axe").value=bearing(la,lo,e.latlng.lat,e.latlng.lng).toFixed(1); window._target=[e.latlng.lat,e.latlng.lng]; setPick(null); compute(); return; }
   // Clic : toutes les zones visibles a cet endroit, actives d'abord, petites avant grandes
@@ -574,22 +575,20 @@ $("dlComplet").onclick=()=>result&&save(`zones_${tag()}_complet.txt`,oaZones(tru
 const KEYS=["lat","lon","axe","ouv","ray","site"];
 function saveParams(){ try{ localStorage.setItem("secteurVFR",JSON.stringify(Object.fromEntries(KEYS.map(k=>[k,$(k).value])))); }catch(e){} }
 function loadParams(){ try{ const o=JSON.parse(localStorage.getItem("secteurVFR")||"null"); if(o) for(const k of KEYS) if(o[k]!=null) $(k).value=o[k]; }catch(e){} }
-/* ---------- Choix du site : recherche dans mes sites et la liste FFVL ---------- */
+/* ---------- Choix du site : recherche dans la liste FFVL ---------- */
 // Recherche sans accents ni casse ; tous les mots saisis doivent apparaitre dans le nom, la commune ou le code postal
 const norm=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[-'’_.,()]/g," ");
 let siteRes=[], siteSel=-1;
 function sitesHint(){ $("siteHint").textContent=SITES_FFVL?`${SITES_FFVL.length} sites de décollage et de treuil de la FFVL (liste officielle, data.gouv.fr).`
-  :"Liste FFVL indisponible : mes sites seulement, ou saisir les coordonnées."; }
+  :"Liste FFVL indisponible : saisir les coordonnées ou placer le sommet sur la carte."; }
 function searchSites(q){
   const w=norm(q).split(/\s+/).filter(Boolean);
-  const all=[...SITES.map(s=>({n:s.nom,la:s.lat,lo:s.lon,o:s.o,fav:true})),...(SITES_FFVL||[])];
-  if(!w.length) return all.filter(s=>s.fav);
+  if(!w.length||!SITES_FFVL) return [];
   const q0=w.join(" ");
-  return all.filter(s=>{ s._k??=norm(`${s.n} ${s.v||""} ${s.cp||""}`); return w.every(x=>s._k.includes(x)); })
-    .sort((a,b)=>(b.fav?1:0)-(a.fav?1:0)||(norm(b.n).startsWith(q0)?1:0)-(norm(a.n).startsWith(q0)?1:0)||a.n.localeCompare(b.n));
+  return SITES_FFVL.filter(s=>{ s._k??=norm(`${s.n} ${s.v||""} ${s.cp||""}`); return w.every(x=>s._k.includes(x)); })
+    .sort((a,b)=>(norm(b.n).startsWith(q0)?1:0)-(norm(a.n).startsWith(q0)?1:0)||a.n.localeCompare(b.n));
 }
 function siteDesc(s){
-  if(s.fav) return "Mes sites"+(s.o?` · orient. ${esc(s.o)}`:"");
   return [esc(s.v), s.z!=null?`${s.z} m`:"", s.o?`orient. ${esc(s.o)}`:"", s.t==="T"?"treuil":"",
     s.s==="I"?`<span class="warn">interdit</span>`:s.s==="A"?`<span class="warn">autorisation requise</span>`:""].filter(Boolean).join(" · ");
 }
@@ -612,14 +611,20 @@ function axeSousLeVent(o){
   return Math.round((Math.atan2(x,y)/D2R+180+360)%360);
 }
 function chooseSite(s){
-  $("site").value=s.n; $("lat").value=s.la; $("lon").value=s.lo; window._target=null;
+  $("site").value=s.n; majClear(); $("lat").value=s.la; $("lon").value=s.lo; window._target=null;
   const axe=axeSousLeVent(s.o);
   if(axe!=null){ $("axe").value=axe; $("axeHint").textContent=`Axe proposé : ${axe}°, sous le vent du site (orientation ${s.o}). Modifiable.`; }
   else $("axeHint").textContent=s.o?`Orientations ${s.o} : pas d'axe proposé, axe inchangé.`:"";
   showSites(false); updateSunDefaults(true); compute();
 }
-$("site").addEventListener("input",()=>{ siteRes=searchSites($("site").value); siteSel=siteRes.length?0:-1; showSites(true); });
-$("site").addEventListener("focus",()=>{ siteRes=searchSites($("site").value); siteSel=-1; showSites(true); });
+const majClear=()=>{ $("siteClear").hidden=!$("site").value; };
+$("site").addEventListener("input",()=>{ majClear(); siteRes=searchSites($("site").value); siteSel=siteRes.length?0:-1; showSites(!!$("site").value.trim()); });
+// Au focus, le texte est selectionne : la frappe remplace le site precedent
+let siteFocusClic=false;
+$("site").addEventListener("focus",()=>{ siteFocusClic=true; setTimeout(()=>$("site").select(),0); });
+// le relachement du clic qui donne le focus ne doit pas annuler la selection
+$("site").addEventListener("mouseup",e=>{ if(siteFocusClic){ e.preventDefault(); siteFocusClic=false; } });
+$("siteClear").addEventListener("click",()=>{ $("site").value=""; majClear(); showSites(false); $("axeHint").textContent=""; $("site").focus(); });
 $("site").addEventListener("blur",()=>showSites(false));
 $("site").addEventListener("keydown",e=>{
   if($("siteList").hidden) return;
@@ -636,7 +641,7 @@ if(!SITES_FFVL&&!EMBED) fetch("sites.json").then(r=>r.ok?r.json():null).then(d=>
 $("pickApex").onclick=()=>setPick(pickMode==="apex"?null:"apex");
 $("pickTarget").onclick=()=>setPick(pickMode==="target"?null:"target");
 $("jour").onchange=()=>{ updateSunDefaults(true); compute(); };
-["lat","lon"].forEach(k=>$(k).addEventListener("change",()=>{ $("site").value=""; window._target=null; updateSunDefaults(true); }));
+["lat","lon"].forEach(k=>$(k).addEventListener("change",()=>{ $("site").value=""; majClear(); window._target=null; updateSunDefaults(true); }));
 $("axe").addEventListener("change",()=>{ window._target=null; $("axeHint").textContent=""; });
 $("form").addEventListener("submit",e=>{ e.preventDefault(); compute(); setTab("zones"); });
 
@@ -673,7 +678,7 @@ function initSnapshot(s){
   if(PRESET){
     // Carte produite par zones_secteur.py : secteur et creneau du calcul, zones du secteur seulement
     for(const k of ["lat","lon","axe","ouv","ray"]) $(k).value=PRESET[k];
-    $("site").value="";
+    $("site").value=""; majClear();
     if(!days.includes(PRESET.jour)) $("jour").insertAdjacentHTML("beforeend",`<option value="${PRESET.jour}">${PRESET.jour.split("-").reverse().join("/")}</option>`);
     $("jour").value=PRESET.jour;
     updateSunDefaults(true); $("deb").value=PRESET.deb; $("fin").value=PRESET.fin;
@@ -684,7 +689,7 @@ function initSnapshot(s){
 }
 $("opts").addEventListener("change",onOpt);
 $("opts").addEventListener("input",e=>{ if(e.target.dataset.f==="altv") onOpt(e); });
-loadOpts(); initMap(); loadParams(); renderOpts();
+loadOpts(); initMap(); loadParams(); majClear(); renderOpts();
 try{ setPanel(localStorage.getItem("secteurVFR.panel")==="1"); }catch(e){ setPanel(false); }
 if(EMBED) initSnapshot(EMBED);
 else fetch("latest.json",{cache:"no-store"}).then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); }).then(initSnapshot)
