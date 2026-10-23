@@ -473,6 +473,40 @@ def parse_sup_text(text, db):
             pts, note = _sup_lateral(lat_txt, db)
             nm = names[k] if k < len(names) else f"zone {len(zones) + 1}"
             zones.append({"nom": nm[:60], "pts": pts, "al": al, "ah": ah, "note": note})
+    if not any(z["pts"] for z in zones):
+        zones = _sup_blocs(sect, db) or zones
+    return zones
+
+
+# Limites verticales ecrites « SFC / FL 285 », « 1500 FT AMSL / FL 115 », « GND / 3000 FT ASFC »
+_SUP_VERT_RE = re.compile(r"(?im)^[ \t]*((?:SFC|GND|FL\s*\d+|\d[\d\s]*(?:FT|M)\b[^/\n]{0,12}))[ \t]*/[ \t]*"
+                          r"((?:FL\s*\d+|UNL|\d[\d\s]*(?:FT|M)\b[^\n]{0,12}))[ \t]*$")
+
+
+def _sup_blocs(sect, db):
+    """Autre mise en page des SUP (ex. 094/25) : pas de lignes « Limites laterales » / « Limites verticales », mais
+    des blocs « ZRT XXX (ERNIP identification : ...) » suivis de leurs coordonnees, et des limites verticales
+    « SFC / FL 285 » propres au bloc ou communes (ecrites une fois apres le dernier bloc)."""
+    tetes = list(re.finditer(r"(?m)^[ \t]*(?:ZRT|ZDT|ZIT)\b[^\n]*$", sect))
+    if any(len(re.findall(r"\b(?:ZRT|ZDT|ZIT)\b", t.group(0))) > 1 for t in tetes):
+        return []                       # en-tete de tableau (« ZRT OLONNE A ZRT OLONNE B ... ») : autre mise en page
+    vert_communes = list(_SUP_VERT_RE.finditer(sect))
+    zones = []
+    for k, t in enumerate(tetes):
+        bloc = sect[t.start(): tetes[k + 1].start() if k + 1 < len(tetes) else len(sect)]
+        # nom : la ligne d'en-tete et ses suites, jusqu'a « (ERNIP... », une coordonnee ou une ligne vide
+        nom = []
+        for ligne in bloc.split("\n"):
+            ligne = ligne.strip()
+            if not ligne or ligne.startswith("(") or "°" in ligne:
+                break
+            nom.append(ligne)
+        pts, note = _sup_lateral(bloc, db)
+        if not pts:
+            continue
+        v = _SUP_VERT_RE.search(bloc) or (vert_communes[-1] if vert_communes else None)
+        al, ah = (_norm_alt(v[1]), _norm_alt(v[2])) if v else ("", "")
+        zones.append({"nom": re.sub(r"\s+", " ", " ".join(nom))[:60], "pts": pts, "al": al, "ah": ah, "note": note})
     return zones
 
 
@@ -509,8 +543,8 @@ class SupCache:
                 print("  (pypdf absent : geometrie des SUP AIP non lue - pip install pypdf)")
             except Exception as e:
                 print(f"  (SUP {num} : lecture impossible : {e})")
-        if not res:                     # PDF illisible (tableau sur plusieurs colonnes...) : zones recopiees a la main
-            res = complements_sup().get(num, [])
+        # Zones recopiees a la main (PDF illisible : tableau sur plusieurs colonnes...) : elles priment toujours
+        res = complements_sup().get(num) or res
         self.mem[num] = res
         return res
 
@@ -666,9 +700,29 @@ def _horaires_fixes(bloc):
         segments.append((None, None, t, None, None))
     regles = []
     for d0, d1, s, h0, h1 in segments:
+        # Plages d'exclusion « sauf pendant les creneaux horaires suivants : SR - SR plus 02H00, SS moins 02H00 - SS » :
+        # retirees des creneaux (9e element de la regle) ; leurs heures ne sont pas des plages d'activite
+        excl = ()
+        x = _SAUF_PENDANT.search(s)
+        if x:
+            hs = [_heure(h) for h in re.findall(_HEURE, x[1])]
+            excl = tuple(zip(hs[0::2], hs[1::2]))
+            s = s[:x.start()] + " " + s[x.end():]
+        # Periodes d'un jour de la semaine a un autre : « du lundi 10H00 au vendredi 10H00 »
+        semaine = list(_SEMAINE_RE.finditer(s))
+        for m in semaine:
+            regles += [(d0, d1, jj, pl, ete, (h0, h1)) + _feries(s) + (excl,) for jj, pl in _regles_semaine(m)]
+        if semaine:
+            s = _SEMAINE_RE.sub(" ", s)
+            if not _PLAGE.search(s):
+                continue
         plages = list(_PLAGE.finditer(s))
         if not plages and h0 and h1:            # « Du 17 avril 2026 a 0000 au 14 avril 2027 a 2359 » seul
-            regles.append((d0, d1, set(range(7)), [("0000", "2400")], ete, (h0, h1)) + _feries(s))
+            regles.append((d0, d1, set(range(7)), [("0000", "2400")], ete, (h0, h1)) + _feries(s) + (excl,))
+            continue
+        if not plages and (len(_jours(s)) < 7 or _feries(s)[0]):
+            # jours sans heures : « activables du lundi au vendredi hors jours feries » -> toute la journee ces jours-la
+            regles.append((d0, d1, _jours(s), [("0000", "2400")], ete, (h0, h1)) + _feries(s) + (excl,))
             continue
         for j, p in enumerate(plages):
             suite = s[p.end(): plages[j + 1].start() if j + 1 < len(plages) else len(s)]
@@ -682,8 +736,28 @@ def _horaires_fixes(bloc):
             avant = s[:p.start()] if j == 0 else ""
             if len(jours) == 7 and avant:           # jours ecrits avant la plage : « du lundi au vendredi : 0800-1700 »
                 jours = _jours(avant)
-            regles.append((d0, d1, jours, [hh], ete, (h0, h1)) + _feries(suite + " " + avant))
+            regles.append((d0, d1, jours, [hh], ete, (h0, h1)) + _feries(suite + " " + avant) + (excl,))
     return regles or None
+
+
+_JOUR_SEM = "LUNDI|MARDI|MERCREDI|JEUDI|VENDREDI|SAMEDI|DIMANCHE"
+_SEMAINE_RE = re.compile(r"DU\s+(" + _JOUR_SEM + r")\s+(\d{1,2})\s*[H:]\s*(\d{2})\s+AU\s+(" + _JOUR_SEM + r")\s+"
+                         r"(\d{1,2})\s*[H:]\s*(\d{2})")
+_SAUF_PENDANT = re.compile(r"(?:,\s*)?(?:ET\s+)?SAUF\s+PENDANT\s+(?:LES\s+)?(?:CRENEAUX|PLAGES)(?:\s+HORAIRES)?"
+                           r"(?:\s+SUIVANTS?)?\s*:?(.*?)(?=\bDU\s+\d|\(\s*HORAIRES|\bTOUTES\s+LES\s+ZONES|\Z)", re.S)
+
+
+def _regles_semaine(m):
+    """« du lundi 10H00 au vendredi 10H00 » -> [(jours, plages)] : lundi 1000-2400, mardi a jeudi 0000-2400,
+    vendredi 0000-1000 (le passage d'une semaine a l'autre, « du vendredi 18H00 au lundi 0600 », est gere)."""
+    a, b = JOURS_FR[m[1]], JOURS_FR[m[4]]
+    ha, hb = f"{int(m[2]):02d}{m[3]}", f"{int(m[5]):02d}{m[6]}"
+    if a == b and hb > ha:
+        return [({a}, [(ha, hb)])]
+    n = (b - a) % 7 or 7
+    milieu = {(a + k) % 7 for k in range(1, n)}
+    out = [({a}, [(ha, "2400")])] + ([(milieu, [("0000", "2400")])] if milieu else [])
+    return out + ([({b}, [("0000", hb)])] if hb != "0000" else [])
 
 
 # Tableau de jours precis : « MARS 2026 : 24,26 : 0700-1200 ET 1700-2259 », « NOVEMBRE 2026 3,5,17,24 0700-12001500-2359 »
@@ -691,7 +765,34 @@ _TABLEAU = re.compile(r"\b(" + "|".join(MOIS_FR) + r")\s+(\d{4})\s*:?\s*((?:\d{1
                       r"((?:\d{4}\s*-\s*\d{4}(?:\s*(?:ET|,)\s*)?)+)")
 
 
-def _tableau_jours(texte, zone=""):
+# Tableau « DATES | ZRT RAPACE ALPHA | ZRT RAPACE BRAVO » : une ligne par date, puis les plages de chaque colonne
+# (collees a l'extraction du PDF : « 06 OCTOBRE 2026 0600 - 14001600 - 2359 0600 - 14001600 - 2359 »)
+_TABLEAU_DATES = re.compile(r"\b(\d{1,2})(?:ER)?\s+(" + "|".join(MOIS_FR) + r")\s+(\d{4})\s+((?:\d{4}\s*-\s*\d{4}\s*)+)")
+
+
+def _tableau_dates(texte, zone, noms):
+    """{date: plages de la colonne de `zone`} d'un tableau de dates ; les plages d'une ligne sont reparties entre
+    les colonnes (zones citees dans l'en-tete « DATES ... »), toutes gardees si la repartition n'est pas nette."""
+    lignes = list(_TABLEAU_DATES.finditer(texte))
+    if not lignes:
+        return {}
+    entete = texte[max(0, texte.rfind("DATES", 0, lignes[0].start())): lignes[0].start()]
+    cols = sorted((entete.find(_fold(n)), _fold(n)) for n in noms if _fold(n) and _fold(n) in entete)
+    k = next((i for i, (_, n) in enumerate(cols) if n == _fold(zone)), None)
+    jours = {}
+    for m in lignes:
+        plages = re.findall(r"(\d{4})\s*-\s*(\d{4})", m[4])
+        if cols and k is not None and len(plages) % len(cols) == 0:
+            n = len(plages) // len(cols)
+            plages = plages[k * n:(k + 1) * n]
+        try:
+            jours.setdefault(dt.date(int(m[3]), MOIS_FR[m[2]], int(m[1])), []).extend(plages)
+        except ValueError:
+            pass
+    return jours
+
+
+def _tableau_jours(texte, zone="", noms=()):
     """Regles d'un tableau de jours precis (une regle par jour), limitees a la periode propre a `zone`
     (« ZRT PEGOUD - DU 01 DECEMBRE 2026 A 0700 AU 23 FEVRIER 2027 A 2359 ») quand le SUP en donne une.
     None si la rubrique n'a pas de tableau."""
@@ -704,6 +805,8 @@ def _tableau_jours(texte, zone=""):
                 jours.setdefault(dt.date(annee, mois, int(j)), []).extend(plages)
             except ValueError:
                 pass
+    if not jours:
+        jours = _tableau_dates(texte, zone, noms)
     if not jours:
         return None
     d0 = d1 = None
@@ -781,7 +884,9 @@ class SupActivite:
                     return (sun[0] if h[:2] == "SR" else sun[1]) + dt.timedelta(minutes=int(h[2:]))
                 return base + dt.timedelta(hours=int(h[:2]), minutes=int(h[2:])) - dt.timedelta(hours=1 if ete else 0)
 
-            for d0, d1, jours, plages, ete, (h0, h1), sauf_ferie, sauf_veille in self.regles:
+            for r in self.regles:
+                d0, d1, jours, plages, ete, (h0, h1), sauf_ferie, sauf_veille = r[:8]
+                excl = r[8] if len(r) > 8 else ()
                 if d0 and not (d0 <= jour <= d1):
                     continue
                 if jour.weekday() not in jours:
@@ -796,10 +901,27 @@ class SupActivite:
                         x = max(x, base + dt.timedelta(hours=int(h0[:2]), minutes=int(h0[2:])))
                     if d1 and h1 and jour == d1:
                         y = min(y, base + dt.timedelta(hours=int(h1[:2]), minutes=int(h1[2:]) + 1))
-                    x, y = max(x, d_base), min(y, d_base + dt.timedelta(days=1))
-                    if y > x:
-                        out.append((x, y))
+                    morceaux = [(x, y)]
+                    for j2 in (jour, jour + dt.timedelta(days=1)):      # plages d'exclusion du jour et du lendemain
+                        for ea, eb in excl:
+                            u, v = _heure_jour(ea, j2, pos, ete and _dst(j2)), _heure_jour(eb, j2, pos, ete and _dst(j2))
+                            if v <= u:
+                                v += dt.timedelta(days=1)
+                            morceaux = [m for p_, q_ in morceaux for m in ((p_, min(q_, u)), (max(p_, v), q_)) if m[1] > m[0]]
+                    for x, y in morceaux:
+                        x, y = max(x, d_base), min(y, d_base + dt.timedelta(days=1))
+                        if y > x:
+                            out.append((x, y))
         return sorted(out)
+
+
+def _heure_jour(h, jour, pos, ete):
+    """Instant UTC d'une heure canonique (« 0800 », « SR-30 ») le jour `jour` a la position `pos`."""
+    if h[0] == "S":
+        sun = sun_times(jour, *pos)
+        return (sun[0] if h[:2] == "SR" else sun[1]) + dt.timedelta(minutes=int(h[2:]))
+    return (dt.datetime(jour.year, jour.month, jour.day, tzinfo=UTC) + dt.timedelta(hours=int(h[:2]), minutes=int(h[2:]))
+            - dt.timedelta(hours=1 if ete else 0))
 
 
 _RUBRIQUES = (r"INFORMATIONS?\s+DES\s+USAGERS|GESTIONNAIRES?|STATUT|CONDITIONS\s+DE\s+P[ÉE]N[ÉE]TRATION|SERVICES\s+RENDUS|"
@@ -910,16 +1032,13 @@ def sup_activite(text, zone, noms):
     if activable(texte):
         if "NOTAM" in texte or ("NOTAM" in general and "PROTOCOLE" not in general):
             return SupActivite("notam", texte=texte)
-        # Activable sans NOTAM (H24, preavis, protocole...) : activite reelle connue par radio ou telephone.
-        # Creneaux d'activabilite lus seulement quand la redaction est simple (pas de plages d'exclusion,
-        # pas de periodes « du lundi 10H00 au vendredi 10H00 ») : sinon la zone reste activable toute la journee.
-        complexe = re.search(r"SAUF\s+PENDANT|CRENEAUX\s+HORAIRES\s+SUIVANTS|\b(?:LUNDI|MARDI|MERCREDI|JEUDI|VENDREDI|"
-                             r"SAMEDI|DIMANCHE)\s+\d", texte)
-        tableau = _tableau_jours(texte, zone)
-        return SupActivite("radio", tableau or (None if complexe else _horaires_fixes(texte)), texte)
+        # Activable sans NOTAM (H24, preavis, protocole...) : activite reelle connue par radio ou telephone, pendant
+        # les creneaux d'activabilite du SUP quand il en donne (plages d'exclusion et periodes « du lundi 10H00 au
+        # vendredi 10H00 » comprises) ; sinon la zone reste activable toute la journee.
+        return SupActivite("radio", _tableau_jours(texte, zone, noms) or _horaires_fixes(texte), texte)
     if "NOTAM" in texte:
         return SupActivite("notam", texte=texte)
-    regles = _tableau_jours(texte, zone) or _horaires_fixes(texte)
+    regles = _tableau_jours(texte, zone, noms) or _horaires_fixes(texte)
     if regles:
         return SupActivite("horaires", regles, texte)
     return SupActivite("verifier", texte=texte)
@@ -2094,6 +2213,35 @@ def loisir(n):
     e = unicodedata.normalize("NFKD", " ".join([n.get("itemE") or "", ((n.get("multiLanguage") or {}).get("itemE") or "")]))
     e = e.encode("ascii", "ignore").decode().upper()
     return not INTERDIT_VFR_RE.search(e) or drones_seulement(e)
+
+
+ZONE_SUP_RE = re.compile(r"\bZ[RDI]T\b|\bTRA\b|\bTSA\b|R[ÉE]GLEMENT[ÉE]E|DANGEREUSE|INTERDITE", re.I)
+
+
+def sups_non_lus(notams, sups, sc, w0, w1):
+    """SUP en vigueur dans [w0, w1] d'apres le listing, qui creent des zones (titre), cites par aucun trigger NOTAM
+    et dont le PDF ne donne aucune zone tracee : ils n'apparaitraient nulle part, la page les liste « a verifier ».
+    Ecartes : itineraires, et SUP dont toutes les altitudes ecrites sont au-dessus du plafond (FL115)."""
+    cites = set()
+    for n in notams.values():
+        e = (n.get("itemE") or "").upper()
+        if n["qLine"]["code45"] == "TT" or "TRIGGER NOTAM" in e:
+            cites.update(re.findall(r"SUP\s+(?:AIP\s+)?(?:AIRAC\s+)?(\d{3}/\d{2})", e))
+    out = []
+    for num, info in sorted(sups.items()):
+        lim = bornes_listing(info)
+        if num in cites or not lim or lim[1] <= w0 or lim[0] >= w1 or not ZONE_SUP_RE.search(info.get("titre", "")):
+            continue
+        if any(z["pts"] for z in sc.zones(num)) or sc.est_itineraire(num):
+            continue
+        t = unicodedata.normalize("NFKD", sc.texts.get(num, "")).encode("ascii", "ignore").decode().upper()
+        bas = re.search(r"\b(?:SFC|GND|SOL)\b|\d\s*(?:FT|M)\s+(?:AMSL|ASFC|AGL|SOL)", t)
+        fls = [int(x) for x in re.findall(r"\bFL\s*(\d{2,3})\b", t)]
+        if t and not bas and fls and min(fls) >= PLAFOND_FL:
+            continue
+        out.append({"sup": num, "titre": info.get("titre", ""), "du": info["du"], "au": info.get("au", ""),
+                    "pdf": info.get("pdf", "")})
+    return out
 
 
 def sups_sans_trigger(notams, sups, sc, w0, w1):

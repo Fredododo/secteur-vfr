@@ -233,6 +233,7 @@ body.collapsed #panel{display:none}
     Luxembourg, non officielle), DAeC (Allemagne, non officielle), LVNL (Pays-Bas, CC BY 4.0), openAIP via AirspaceConverter
     (Suisse, Italie, Espagne, non officielle, CC BY-NC 4.0) ; sites : FFVL (data.gouv.fr,
     Licence Ouverte).<span id="basesInfo"></span></p>
+  <p class="legal" id="supNonLus" style="color:var(--warn)" hidden></p>
 </aside>
 <div id="map"></div>
 
@@ -810,6 +811,12 @@ function initSnapshot(s){
     +(b.ancienne?" (édition ancienne)":"")).join(", ")+".":"";
   if(s.meta.nb_loisirs) $("basesInfo").textContent+=` ${s.meta.nb_loisirs} NOTAM d'activités sportives et récréatives`
     +` et de drones (parachutage, voltige, vol à voile, parapente, treuillage, aéromodélisme, drones) non affichés.`;
+  // SUP en vigueur dont le PDF n'a pas pu etre lu (et sans trigger NOTAM) : a verifier, rien n'est trace
+  const nl=s.meta.sup_non_lus||[];
+  $("supNonLus").hidden=!nl.length;
+  $("supNonLus").innerHTML=nl.length?`SUP AIP en vigueur non lus, zones non tracées : vérifier `
+    +nl.map(x=>`<a href="${esc(x.pdf)}" target="_blank" rel="noopener" title="${esc(x.titre)}">SUP ${esc(x.sup)}</a>`
+      +` (${esc(x.titre.slice(0,70))}${x.titre.length>70?"…":""}, du ${dfr(x.du)} au ${dfr(x.au)})`).join(", ")+".":"";
   const sl=s.meta.sup_liste;
   if(sl) $("basesInfo").textContent+=` Liste des SUP AIP du SIA : ${sl.lu?`lue le ${dmy(parseZ(sl.lu))} à ${hm(parseZ(sl.lu))}Z`:"non lue"}`
     +(sl.copie?" (site du SIA indisponible au dernier relevé)":"")+".";

@@ -258,12 +258,22 @@ de la page et écrite dans le journal du relevé ; une édition de plus de 60 jo
 signalée « édition ancienne » dans la source des zones concernées. Au 23/10/2026, la LVZC n'a rien publié depuis
 son édition du 31/03/2026.
 
+## SUP AIP non lus
+
+Deux mises en page de PDF sont lues : lignes « Limites latérales » / « Limites verticales » par zone, ou blocs
+« ZRT XXX (ERNIP identification : …) » suivis de leurs coordonnées, avec des limites verticales « SFC / FL 285 »
+propres au bloc ou communes (ex. SUP 094/25). Un SUP en vigueur d'après le listing, qui crée des zones (titre),
+cité par aucun trigger NOTAM et dont le PDF ne donne aucune zone, n'apparaîtrait nulle part : il est listé en bas
+de la page (« SUP AIP en vigueur non lus, zones non tracées : vérifier », lien vers le PDF ; `meta.sup_non_lus`),
+sauf si toutes les altitudes écrites dans le PDF sont au-dessus du FL115. Ses zones peuvent alors être recopiées à
+la main (ci-dessous).
+
 ## SUP AIP recopiés à la main
 
 Quand la lecture du PDF d'un SUP ne donne aucune zone (tableau sur plusieurs colonnes, mélangées à l'extraction du
 texte), ses zones peuvent être recopiées dans `zones_complements.txt`, avec une ligne `* SUP AIP : NNN/AA` dans le
-commentaire qui les précède et le même nom (`AN`) que dans le SUP. Elles ne servent que pour ce SUP, et seulement si
-le PDF ne donne rien ; la source affichée est « SUP AIP NNN/AA (recopie manuelle) ». Exemple : SUP 042/26, ZRT
+commentaire qui les précède et le même nom (`AN`) que dans le SUP. Elles ne servent que pour ce SUP et priment
+toujours sur la lecture du PDF ; la source affichée est « SUP AIP NNN/AA (recopie manuelle) ». Exemple : SUP 042/26, ZRT
 Olonne A, B et C (trigger NOTAM R0750/26). À retirer quand le SUP n'est plus en vigueur.
 
 ## Zones allemandes
@@ -316,7 +326,7 @@ elles exigent un en-tête Referer et sont refusées quand la carte est ouverte p
 - Les créneaux déjà terminés ne sont plus renvoyés par SOFIA : lancé à 10:01Z, le script ne montre plus une zone RTBA active 0730-1000.
 
 - SOFIA ne fournit que les NOTAM à venir : le créneau démarre à l'heure courante si le jour est aujourd'hui ; pas d'historique ; au-delà de ~J+6 la requête échoue. Les NOTAM d'activation sont souvent publiés 48 h (parfois D-4/D-7) avant.
-- Zones SUP AIP : les limites « à l'exclusion de… » ne sont pas soustraites, les tronçons suivant une frontière ou une côte sont tracés en ligne droite (signalé dans la colonne `geometrie`). Les créneaux d'activabilité rédigés de façon complexe (plages d'exclusion « sauf pendant les créneaux suivants », périodes « du lundi 10H00 au vendredi 10H00 ») ne sont pas lus : la zone reste activable toute la journée. Si un PDF ne se lit pas, retour au cercle de la ligne Q.
+- Zones SUP AIP : les limites « à l'exclusion de… » ne sont pas soustraites, les tronçons suivant une frontière ou une côte sont tracés en ligne droite (signalé dans la colonne `geometrie`). Horaires du SUP lus : périodes « du … au … », plages (« 0800-1700 », « de … à … », H24, SR/SS ± décalage), jours (« du lundi au vendredi », « sauf samedi »), jours fériés et veilles, heure d'été (« ÉTÉ : -1 HR »), jours sans heures (« activables du lundi au vendredi hors jours fériés » : toute la journée ces jours-là), périodes d'un jour de la semaine à l'autre (« du lundi 10H00 au vendredi 10H00 »), plages d'exclusion retirées des créneaux (« sauf pendant les créneaux horaires suivants : SR – SR plus 02H00, SS moins 02H00 – SS »), tableaux de dates (« MARS 2026 : 24,26 : 0700-1200 », ou une ligne par date avec une colonne par zone, plages collées à l'extraction comprises). Une rédaction non reconnue laisse la zone activable toute la journée. Si un PDF ne se lit pas, retour au cercle de la ligne Q.
 - Dépendance : `pip install pypdf` (sans elle, le script fonctionne mais sans géométrie SUP).
 - Items D complexes (`EXC`, plages de mois…) : zone gardée et marquée « horaire à vérifier ».
 - Les NOTAM « info » (suspension, modification) sont listés dans le CSV et la carte, pas dans l'OpenAir.

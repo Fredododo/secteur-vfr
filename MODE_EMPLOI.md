@@ -120,3 +120,5 @@ affiche toutes les zones en permanence — vérifiez alors l'horaire dans le nom
   dans la fiche de la zone (« Date de fin du SUP … corrigée par le SIA »). La liste est relue à chaque relevé ; le bas de la page
   donne l'heure de lecture. Si le site du SIA n'a pas répondu, la page l'indique sous l'heure du relevé
   (« Liste des SUP AIP non mise à jour ») : les dates des SUP sont alors celles de la dernière lecture.
+- Un SUP en vigueur dont le PDF n'a pas pu être lu, et qu'aucun NOTAM n'annonce, n'est pas tracé : il est listé en
+  orange en bas de la page (« SUP AIP en vigueur non lus : vérifier »), avec le lien vers son PDF. Lisez-le.
