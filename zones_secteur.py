@@ -711,6 +711,35 @@ _FREQ_RE = re.compile(r"([A-ZÀ-Ü][A-ZÀ-Ü'’ \-]{1,30}?\s(?:INFO|APP|TWR|AFI
 _TEL_RE = re.compile(r"(?:\+33\s?\(?0?\)?\s?|\b0)[1-9](?:[\s.]?\d{2}){4}\b")
 
 
+_SERVICE_RE = re.compile(r"(INFO|APP|TWR|AFIS|SIV|CTL|CONTROL|CONTR[ÔO]LE|APPROCHE|TOUR|INFORMATION|RADAR|SOL|GND|ATIS|"
+                         r"TRANSIT|DIRECTEUR)$", re.I)
+
+
+def _indicatif(brut):
+    """Indicatif d'un organisme (« VALENCE INFO », « MONT DE MARSAN APP », « LA ROCHELLE TWR ») a partir du texte qui
+    precede la frequence, qui peut contenir le debut de la phrase (« … ou du gestionnaire de la ZRT SPAHIS VALENCE INFO »).
+    Garde le dernier mot avant le service, et les mots qui lui sont lies : article (LA, LE, LES), SAINT, ou « X DE Y »."""
+    mots = re.sub(r"\s+", " ", brut).strip(" -:'’").split(" ")
+    if len(mots) < 2 or not _SERVICE_RE.match(mots[-1]):
+        return re.sub(r"\s+", " ", brut).strip(" -:'’").upper()
+    service, avant = mots[-1], mots[:-1]
+    # Nom isole de deux mots en majuscules (« : ORLEANS BRICY TWR ») : garde les deux
+    if len(avant) == 2 and all(re.fullmatch(r"[A-ZÀ-Ü][A-ZÀ-Ü\-]{2,}", w) for w in avant) \
+            and not {w.upper() for w in avant} & {"ZRT", "ZONE", "TSA", "TRA", "SUP", "AIP", "RTBA", "NOTAM"}:
+        return " ".join(avant + [service]).upper()
+    nom = [avant.pop()]
+    while avant:
+        w = avant[-1].upper()
+        if w in ("LA", "LE", "LES", "SAINT", "ST", "STE", "SAINTE"):
+            nom.insert(0, avant.pop())
+        elif w in ("DE", "DU", "DES") and len(avant) >= 2 and avant[-2][:1].isupper() and avant[-2].isupper() \
+                and avant[-2].upper() not in ("ZRT", "ZONE", "TSA", "TRA", "SUP", "AIP", "RTBA", "GESTIONNAIRE"):
+            nom[0:0] = [avant.pop(-2), avant.pop()]
+        else:
+            break
+    return " ".join(nom + [service]).upper()
+
+
 def _rubrique(text, titre):
     m = re.search(r"(?:^|\n)\s*(?:" + titre + r")\s*:?(.*?)(?=\n\s*(?:" + _RUBRIQUES + r")|\Z)", text, re.S | re.I)
     return re.sub(r"\s+", " ", m.group(1)).strip() if m else ""
@@ -723,8 +752,7 @@ def sup_infos(text):
     usagers = _rubrique(text, r"INFORMATIONS?\s+DES\s+USAGERS")
     freqs = []
     for m in _FREQ_RE.finditer(usagers or text):
-        nom = re.sub(r"^(?:MHZ|ET|DE|ACTIVIT[ÉE]\s+R[ÉE]ELLE\s+CONNUE\s+DE|CONNUE\s+DE)\s+", "",
-                     re.sub(r"\s+", " ", m[1]).strip(" -:'’"), flags=re.I).strip()
+        nom = _indicatif(m[1])
         f = m[2].replace(",", ".")
         if (nom.upper(), f) not in [(a.upper(), b) for a, b in freqs]:
             freqs.append((nom.upper(), f))
