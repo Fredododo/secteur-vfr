@@ -67,6 +67,11 @@ Le fichier `.txt` est au format **OpenAir extended** (comme le fichier planeur-n
 (espace non classé) et type `AY R` (réglementée), `AY Q` (dangereuse, zones W et D) ou `AY P` (interdite). Il garde
 les cercles et arcs d'origine ; la première fréquence de la zone est reprise dans les champs `AF`/`AG`.
 
+Chaque zone porte aussi ses **horaires d'activation** (lignes `AA`, en UTC, tous les créneaux du relevé, soit
+jusqu'à 48 h) et son champ D en commentaire. Les logiciels qui lisent `AA` (SeeYou ; XCSoar dans une version
+future) affichent ou masquent la zone selon l'heure. Les autres les ignorent : testé avec **XCSoar 7.44**, qui
+affiche toutes les zones en permanence — vérifiez alors l'horaire dans le nom de la zone.
+
 ## Bon à savoir
 
 - L'**âge du relevé** est indiqué en haut (« il y a 20 min »). Au-delà de 2 h, la mise à jour a eu un incident.

@@ -84,16 +84,7 @@ def couverture(frame, radius_nm=Q_RADIUS_NM):
 
 
 to_feature = zs.zone_feature      # conversion zone -> GeoJSON, partagee avec zones_secteur.py
-
-
-def merge_slots(slots):
-    out = []
-    for a, b in sorted(slots):
-        if out and a <= out[-1][1]:
-            out[-1] = (out[-1][0], max(out[-1][1], b))
-        else:
-            out.append((a, b))
-    return out
+merge_slots = zs.merge_slots
 
 
 def ecrire_pages(snap, dossier):

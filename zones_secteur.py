@@ -1951,6 +1951,9 @@ def main():
                 fq = re.match(r"(.+) (\d{3}\.\d{1,3})", (r.get("frequences") or "").split(" / ")[0])
                 if fq:                                   # premiere frequence : champs OpenAir AF (frequence) et AG (indicatif)
                     f.write(f"AF {fq[2]}\nAG {fq[1]}\n")
+                # Horaires d'activation (OpenAir extended, champ AA, UTC) : creneaux du jour, tries et fusionnes
+                for x, y in merge_slots(r["_slots"]):
+                    f.write(f"AA {x:%Y-%m-%dT%H:%M}Z/{y:%Y-%m-%dT%H:%M}Z\n")
                 f.write(f"AL {r['plancher']}\nAH {r['plafond']}\n")
                 # Geometrie d'origine (cercle DC, arcs DA/DB) quand elle est connue, sinon polygone DP
                 oa = getattr(r["_pts"], "oa", None) or [f"DP {oa_pt(la, lo)}" for la, lo in r["_pts"]]
@@ -2012,6 +2015,17 @@ def zone_feature(r):
         "openair": getattr(r["_pts"], "oa", None) or [f"DP {oa_pt(la, lo)}" for la, lo in r["_pts"]],
     })
     return {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [pts]}, "properties": props}
+
+
+def merge_slots(slots):
+    """Creneaux tries, ceux qui se chevauchent ou se touchent etant fusionnes."""
+    out = []
+    for a, b in sorted(slots):
+        if out and a <= out[-1][1]:
+            out[-1] = (out[-1][0], max(out[-1][1], b))
+        else:
+            out.append((a, b))
+    return out
 
 
 def page_html(snap, preset=None, sites=None):
