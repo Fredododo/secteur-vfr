@@ -1464,24 +1464,43 @@ def _normaliser_ids(text):
     return re.sub(r"\bLETS\s?(\d)", r"LETSA\1", (text or "").upper())
 
 
+# Zone regroupant plusieurs sous-zones : « LF-R203ABC » (nom de la base) ou « LF-R203A/B/C » (texte d'un NOTAM)
+ZONE_GROUPE_RE = re.compile(r"\b(?:LF-?)?(R|D|P)\s?-?\s?(\d{1,3})(?:([A-H]{3,5})|([A-H])((?:/[A-H])+))(?![\w.])")
+
+
+def _groupes(text):
+    """[(cle de la zone groupee, [cles des sous-zones]), ...] : R203ABC -> R203A, R203B, R203C."""
+    out = []
+    for m in ZONE_GROUPE_RE.finditer(text):
+        lettres = m[3] or (m[4] + m[5].replace("/", ""))
+        out.append((f"{m[1]}{int(m[2])}{lettres}", [f"{m[1]}{int(m[2])}{x}" for x in lettres], m.start()))
+    return out
+
+
 def zone_keys(text):
+    t = _normaliser_ids(text)
     keys = []
-    for m in ZONE_ID_RE.finditer(_normaliser_ids(text)):
+    for k, sous, _ in _groupes(t):
+        keys += [k] + sous + [k[:len(k) - len(sous)]]
+    for m in ZONE_ID_RE.finditer(t):
         k = f"{m[1]}{int(m[2])}{m[3] or ''}"
         keys.append(k)
         if m[3]:
             keys.append(f"{m[1]}{int(m[2])}")
-    return keys
+    return list(dict.fromkeys(keys))
 
 
 def named_zones_in_text(text, db):
-    """Zones permanentes citees dans le texte et presentes dans la base."""
+    """Zones permanentes citees dans le texte et presentes dans la base (« R203A/B/C » : chaque sous-zone ; une zone
+    de la base qui les regroupe toutes, « R203ABC », n'est retenue qu'une fois)."""
+    t = _normaliser_ids(text)
     found = []
-    for m in ZONE_ID_RE.finditer(_normaliser_ids(text)):
-        k = f"{m[1]}{int(m[2])}{m[3] or ''}"
-        z = db.get(k) or (None if m[3] else None)
-        if z and k not in [f[0] for f in found]:
-            found.append((k, z, m.start()))
+    cites = [(k, pos) for g, sous, pos in _groupes(t) for k in [g] + sous]
+    cites += [(f"{m[1]}{int(m[2])}{m[3] or ''}", m.start()) for m in ZONE_ID_RE.finditer(t)]
+    for k, pos in sorted(cites, key=lambda c: c[1]):
+        z = db.get(k)
+        if z and all(z is not f[1] for f in found):
+            found.append((k, z, pos))
     return found
 
 # --------------------------------------------------------------------------
@@ -2045,7 +2064,8 @@ NOTAM_ACTIVATION_RE = re.compile(r"(ACTIVABLE|ACTIVATED|ACTIVATION|ANNOUNCED)[^.
 _DRONE = (r"(?:RPAS|UAS|UAV|DRONES?|UNMANNED(?:\s+AIRCRAFT|\s+ACFT)?|MODEL\s+(?:ACFT|AIRCRAFT|FLYING)|AEROMODEL\w*|"
           r"A[EÉ]RONEFS?\s+SANS\s+(?:[EÉ]QUIPAGE|PILOTE)|T[EÉ]L[EÉ]PILOT\w*)")
 DRONES_SEULS_RE = re.compile(r"(?:PROHIBITED|NOT\s+(?:ALLOWED|PERMITTED)|FORBIDDEN|BANNED|INTERDITE?S?|INTERDICTION)\W+"
-                             r"(?:\w+\W+){0,3}?(?:FOR|TO|AUX?|POUR|PAR)\W+(?:(?:ALL|LES|TOUS|DES|THE)\W+)?" + _DRONE +
+                             r"(?:\w+\W+){0,3}?(?:FOR|TO|AUX?|[AÀ]|POUR|PAR)\W+"
+                             r"(?:(?:ALL|ANY|LES|TOUS|TOUTE?S?|DES|THE)\W+)?" + _DRONE +
                              r"|FOR\s+" + _DRONE + r"\s+ONLY")
 POUR_TOUS_RE = re.compile(r"CONTOURNEMENT\s+OBLIGATOIRE|COMPULSORY\s+(?:AREA\s+)?AVOIDANCE|AREA\s+PROHIBITED\b|ZRT\b|"
                           r"TEMPO(?:RARY)?\s+RESTRICTED\s+AREA\s+ACT|ZONE\s+REGLEMENTEE|ALL\s+(?:ACFT|AIRCRAFT|FLIGHTS)|"
