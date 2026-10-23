@@ -78,7 +78,8 @@ La page a quatre onglets :
   terminés » (décochée par défaut : seules les activités en cours ou à venir sont montrées ; cochée, les créneaux passés
   depuis l'heure du relevé sont gardés et marqués « terminé ») ;
 - **Zones** : liste cliquable des zones affichées (clic sur la carte = toutes les zones du point) ;
-- **Export** : OpenAir avec cercles et arcs natifs, deux boutons : « Zones affichées (après filtres) » et
+- **Export** : OpenAir avec cercles et arcs natifs, trois boutons (« France : tout le relevé » exporte tout le relevé,
+  sans secteur ni filtre, horaires en lignes `AA`), dont : « Zones affichées (après filtres) » et
 « Toutes les zones du secteur » (sans filtres, plancher < FL115, suffixe `_complet`).
 Vérifié le 20/10/2026 : mêmes zones et créneaux que `zones_secteur.py --releve` (Jeufosse, 21/10).
 

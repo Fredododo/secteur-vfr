@@ -65,6 +65,9 @@ privée ou après effacement des données du site, on repart des réglages par d
 
 - **Zones affichées (après filtres)** : exactement ce que montre la carte.
 - **Toutes les zones du secteur** : tout, sans tenir compte des filtres.
+- **France : tout le relevé** : toutes les zones du relevé (France et bande de 100 km autour), sans tenir compte
+  du secteur ni des filtres, toutes catégories (la catégorie de chaque zone est en commentaire), avec leurs horaires
+  sur les 48 h du relevé en lignes `AA`. Fichier d'environ 400 Ko et 900 zones.
 
 Le fichier `.txt` est au format **OpenAir extended** (comme le fichier planeur-net de la FFVP) : classe `AC UNC`
 (espace non classé) et type `AY R` (réglementée), `AY Q` (dangereuse, zones W et D) ou `AY P` (interdite). Il garde
