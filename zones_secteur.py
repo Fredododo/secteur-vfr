@@ -833,8 +833,11 @@ def sup_activite(text, zone, noms):
 AIRSPACE_URL = "https://planeur-net.github.io/airspace/france.txt"
 LVZC_INDEX = "https://www.lvzc.be/index.php/luchtruim/luchtruimbestanden"
 DAEC_INDEX = "https://www.daec.de/fachbereiche/luftraum-flugsicherheit-betrieb/luftraumdaten/"
-# Identifiants de zones : LF-R45A, R139A, TSA22, EBR67, EBD26, HTA04A, LFA01, TRA23, ELTSA03, CBA1, EDR134, EDD19B...
-ZONE_ID_RE = re.compile(r"\b(?:LF-?|EU-?|EB-?|EL-?|ED-?)?(R|D|P|TSA|CBA|HTA|LFA|TRA)\s?-?\s?(\d{1,3})\s?([A-Z]{1,2}\d?(?:\.\d)?)?(?![\w.])")
+# LVNL (prestataire de navigation aerienne neerlandais) : couches officielles de son geoportail, licence CC BY 4.0
+LVNL_SERVICE = "https://services-eu1.arcgis.com/OtUwzhpKSdeXgRIB/arcgis/rest/services/Airspaces_data/FeatureServer"
+LVNL_COUCHES = {3: "TSA", 5: "TRA", 17: "Danger area", 18: "Restricted area", 19: "Prohibited area"}
+# Identifiants de zones : LF-R45A, R139A, TSA22, EBR67, EBD26, HTA04A, LFA01, TRA23, ELTSA03, CBA1, EDR134, EDD19B, EHTSA55, EHR64...
+ZONE_ID_RE = re.compile(r"\b(?:LF-?|EU-?|EB-?|EL-?|ED-?|EH-?)?(R|D|P|TSA|CBA|HTA|LFA|TRA)\s?-?\s?(\d{1,3})\s?([A-Z]{1,2}\d?(?:\.\d)?)?(?![\w.])")
 OA_COORD_RE = re.compile(r"(\d+):(\d+):(\d+(?:\.\d+)?)\s*([NS])\s*,?\s*(\d+):(\d+):(\d+(?:\.\d+)?)\s*([EW])")
 
 
@@ -989,13 +992,16 @@ def load_airspace_db(cache_dir):
             db.setdefault(key, rec)
     db.be = load_lvzc(cache_dir)
     db.de = load_daec(cache_dir)
+    db.nl = load_lvnl(cache_dir)
     db.comp = load_complements()
     db.infos = [fr, _info_base("Belgique, Luxembourg (LVZC)", os.path.join(cache_dir, "belgique_lvzc.txt"),
                                r"LAST UPDATED\s+([^\n*]+)"),
                 _info_base("Allemagne (DAeC)", os.path.join(cache_dir, "allemagne_daec.txt"),
-                           r"effective from\s+([^\n*]+)")]
+                           r"effective from\s+([^\n*]+)"),
+                _info_base("Pays-Bas (LVNL)", os.path.join(cache_dir, "paysbas_lvnl.json"),
+                           r'"edition":\s*"([^"]+)"')]
     # Edition de plus de 2 mois : signalee dans la source de chaque zone tiree de cette base
-    for base, info in ((db, db.infos[0]), (db.be, db.infos[1]), (db.de, db.infos[2])):
+    for base, info in ((db, db.infos[0]), (db.be, db.infos[1]), (db.de, db.infos[2]), (db.nl, db.infos[3])):
         if info.get("ancienne"):
             for rec in {id(r): r for r in base.values()}.values():
                 for zz in [rec] + rec.get("autres", []):
@@ -1006,9 +1012,11 @@ def load_airspace_db(cache_dir):
 
 class AirspaceDB(dict):
     """Base France (planeur-net) ; .be = base Belgique / Luxembourg (LVZC) ; .de = base Allemagne (DAeC) ;
+    .nl = base Pays-Bas (LVNL, officielle) ;
     .comp = complements officiels saisis a la main (zones_complements.txt), prioritaires."""
     be = {}
     de = {}
+    nl = {}
     comp = {}
     infos = []          # edition et date de telechargement de chaque base (publiees dans le releve)
 
@@ -1129,6 +1137,73 @@ def load_daec(cache_dir):
         for zz in [rec] + rec.get("autres", []):
             while horaire.search(zz["an"]):
                 zz["an"] = horaire.sub("", zz["an"])
+    return base
+
+
+def _limite_lvnl(val, unite, ref):
+    """Limite verticale LVNL (valeur, FT/FL, SFC/MSL/STD) au format OpenAir : SFC, 1500FT AMSL, FL55."""
+    if val is None:
+        return ""
+    if (unite or "").upper() == "FL":
+        return f"FL{int(val)}"
+    if not val and (ref or "").upper() in ("SFC", "GND"):
+        return "SFC"
+    return f"{int(val)}FT {'AGL' if (ref or '').upper() in ('SFC', 'GND') else 'AMSL'}"
+
+
+def load_lvnl(cache_dir):
+    """Espace aerien Pays-Bas (LVNL, geoportail officiel, CC BY 4.0) : TSA, TRA, zones R, D et P, indexees par
+    designateur (EHTSA55, EHTRA59A, EHR64, EHD41B, EHP26A). Cache de 7 jours (paysbas_lvnl.json)."""
+    path = os.path.join(cache_dir, "paysbas_lvnl.json")
+    if _a_recharger(path):
+        try:
+            feats = []
+            for couche in LVNL_COUCHES:
+                r = requests.get(f"{LVNL_SERVICE}/{couche}/query", timeout=120, params={
+                    "where": "1=1", "outFields": "*", "outSR": 4326, "f": "geojson"})
+                r.raise_for_status()
+                feats += r.json()["features"]
+            if not feats:
+                raise RuntimeError("aucune zone recue")
+            # date d'effet du cycle AIRAC : millisecondes depuis 1970 (requete) ou texte (export du geoportail)
+            dates = [f["properties"].get("EffectiveDate") for f in feats if f["properties"].get("EffectiveDate")]
+            dates = [dt.datetime.fromtimestamp(x / 1000, UTC).date() if isinstance(x, (int, float)) else _date_texte(x)
+                     for x in dates]
+            ed = max((x for x in dates if x), default=None)
+            with open(path + ".tmp", "w", encoding="utf-8") as f:
+                json.dump({"edition": ed.isoformat() if ed else "date inconnue", "features": feats}, f,
+                          ensure_ascii=False)
+            os.replace(path + ".tmp", path)
+            _marquer(path)
+        except Exception as e:
+            if not os.path.exists(path):
+                print(f"  (base Pays-Bas LVNL indisponible : {e})")
+                return {}
+    with open(path, encoding="utf-8") as f:
+        d = json.load(f)
+    label = f"base LVNL officielle ({d.get('edition', 'date inconnue')})"
+    base = {}
+    for f in d["features"]:
+        p, g = f["properties"], f.get("geometry") or {}
+        anneaux = [g["coordinates"][0]] if g.get("type") == "Polygon" else \
+            [c[0] for c in g.get("coordinates", [])] if g.get("type") == "MultiPolygon" else []
+        recs = []
+        for a in anneaux:
+            pas = max(1, len(a) // 360)              # cercles livres en ~1800 points : 1 sur 5 suffit
+            pts = [(la, lo) for lo, la in a[::pas]]
+            if pts[-1] != (a[-1][1], a[-1][0]):
+                pts.append((a[-1][1], a[-1][0]))
+            recs.append({"ac": "R", "an": f"{p.get('Designator', '')} {p.get('Name') or ''}".strip(),
+                         "al": _limite_lvnl(p.get("LowerLimit"), p.get("LowerLimitUnit"), p.get("LowerLimitReference")),
+                         "ah": _limite_lvnl(p.get("UpperLimit"), p.get("UpperLimitUnit"), p.get("UpperLimitReference")),
+                         "pts": Ring(pts, [f"DP {oa_pt(la, lo)}" for la, lo in pts]), "source": label})
+        if not recs:
+            continue
+        rec = recs[0]
+        if len(recs) > 1:
+            rec["autres"] = recs[1:]
+        for key in zone_keys(p.get("Designator") or ""):
+            base.setdefault(key, rec)
     return base
 
 
@@ -1599,9 +1674,10 @@ def notam_parts(n, db, day, sc=None, sup_refs_seen=()):
     if db and restriction:
         # NOTAM belge ou luxembourgeois : base LVZC d'abord (meme numero possible en France : R67, TSA22...)
         # NOTAM allemand : base DAeC seule (EDR95 n'est pas la R95 francaise)
-        be, de = getattr(db, "be", {}) or {}, getattr(db, "de", {}) or {}
+        be, de, nl = (getattr(db, k, {}) or {} for k in ("be", "de", "nl"))
         pays = notam_country(n)
-        bases = [be, db] if pays in ("Belgique", "Luxembourg") else [de] if pays == "Allemagne" else [db, be]
+        bases = ([be, db] if pays in ("Belgique", "Luxembourg") else [de] if pays == "Allemagne"
+                 else [nl] if pays == "Pays-Bas" else [db, be])
         # complements officiels du meme pays que le NOTAM d'abord
         bases = [(getattr(db, "comp", {}) or {}).get(notam_country(n), {})] + bases
         for base in bases:

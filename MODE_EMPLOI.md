@@ -85,7 +85,8 @@ affiche toutes les zones en permanence — vérifiez alors l'horaire dans le nom
   Allemagne). Une édition de plus de 2 mois est signalée « édition ancienne », aussi dans la fiche des zones
   concernées : vérifiez alors leur tracé dans l'AIP.
 - Les **zones belges et luxembourgeoises** viennent d'une base non officielle (LVZC) complétée par l'AIP belge, les
-  **zones allemandes** (ED-R, TRA, ED-D) de la base du DAeC, non officielle elle aussi ; c'est indiqué dans la fiche
+  **zones allemandes** (ED-R, TRA, ED-D) de la base du DAeC, non officielle elle aussi, les **zones néerlandaises**
+  (TSA, TRA, EHR, EHD, EHP) des données officielles de LVNL ; c'est indiqué dans la fiche
   de chaque zone. Ailleurs à l'étranger, une zone citée sans coordonnées est tracée avec le cercle du NOTAM
   (« approx. », pointillé).
 - Une zone désactivée **avant l'heure du relevé** n'y figure plus, même avec « créneaux terminés ».

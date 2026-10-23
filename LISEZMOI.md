@@ -202,6 +202,15 @@ citent les NOTAM allemands (« RESTRICTED AREA EDR112A (SENNE A) … ACT »). Po
 est consultée (EDR95 n'est pas la R95 française) ; l'horaire AIP accolé au nom DAeC (« MON-FRI+ », « H24 ») est
 retiré, celui du NOTAM fait foi.
 
+## Zones néerlandaises
+
+Base **LVNL** (prestataire de navigation aérienne des Pays-Bas), **officielle** : couches du géoportail LVNL
+(service ArcGIS `Airspaces_data`, licence CC BY 4.0, données « AeroDB » datées du cycle AIRAC en vigueur) — TSA,
+TRA, zones réglementées (EHR), dangereuses (EHD) et interdites (EHP), indexées par désignateur (`EHTSA54`,
+`EHTRA59A`, `EHR64`…), comme les citent les NOTAM néerlandais (« TEMPORARY SEGREGATED AREA EHTSA54 … ACTIVATED »).
+Téléchargées en GeoJSON (cache 7 jours `cache/paysbas_lvnl.json`) ; les cercles (≈1 800 points) sont réduits à
+≈360 points. Pour un NOTAM néerlandais, seule cette base est consultée.
+
 ## Sites de vol libre (FFVL)
 
 La liste des sites vient du jeu de données officiel « Terrains de pratique de la FFVL » publié chaque nuit sur
