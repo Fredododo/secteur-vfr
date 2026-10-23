@@ -233,6 +233,23 @@ let SITES_FFVL = /*__SITES__*/null;
 /* ---------- Geodesie spherique (ecarts < 0,5 % avec l'ellipsoide sur 400 km) ---------- */
 const R = 6371008.8, D2R = Math.PI/180, NM = 1852;
 const PLAFOND_FL = 115;   // limite fixe : zones retenues et exports = plancher sous le FL115
+function distM(la1, lo1, la2, lo2){
+  const a=Math.sin((la2-la1)*D2R/2)**2+Math.cos(la1*D2R)*Math.cos(la2*D2R)*Math.sin((lo2-lo1)*D2R/2)**2;
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(a)));
+}
+// Partie du secteur hors de la zone relevee (reunion des cylindres SOFIA du releve) : les NOTAM n'y sont pas connus.
+// Pour chaque relevement, la zone relevee s'arrete a la premiere sortie des cylindres ; au-dela, le secteur est grise.
+function horsZone(P){
+  const m=SNAP&&SNAP.meta, C=m&&m.cylindres; if(!C||!C.length) return null;
+  const r=(m.rayon_nm||100)*NM, couvert=(la,lo)=>C.some(([a,b])=>distM(la,lo,a,b)<=r), pas=2000;
+  const fins=[], half=P.ouv/2; let manque=0, tout=0;
+  for(let b=P.axe-half;b<=P.axe+half+1e-9;b+=1){
+    let d=0; while(d<P.ray&&couvert(...dest(P.lat,P.lon,b,d+pas))) d+=pas;
+    d=Math.min(d,P.ray); fins.push([b,d]); manque+=P.ray**2-d**2; tout+=P.ray**2;
+  }
+  if(manque<=0) return null;
+  return {frac:manque/tout, poly:[...fins.map(([b,d])=>dest(P.lat,P.lon,b,d)), ...fins.slice().reverse().map(([b])=>dest(P.lat,P.lon,b,P.ray))]};
+}
 function dest(lat, lon, brg, d){
   const p1=lat*D2R, l1=lon*D2R, b=brg*D2R, a=d/R;
   const p2=Math.asin(Math.sin(p1)*Math.cos(a)+Math.cos(p1)*Math.sin(a)*Math.cos(b));
@@ -297,7 +314,7 @@ const hm=d=>`${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 const dmy=d=>`${pad(d.getUTCDate())}/${pad(d.getUTCMonth()+1)}/${d.getUTCFullYear()}`;
 const parseZ=s=>new Date(s.replace("Z",":00Z"));
 
-let SNAP=null, map, sectorLayer, targetMarker, groups={}, polys=[], result=null, pickMode=null;
+let SNAP=null, map, sectorLayer, targetMarker, horsLayer=null, groups={}, polys=[], result=null, pickMode=null;
 const F={fond:"Plan (Esri)",w:true,passe:false,pays:{},alt:true,altFt:6500,cat:{"active":true,"SUP AIP - activables":true,"SUP AIP - non interprete":true,"SUP AIP - activable, non activee":false,"SUP AIP - inactive (horaires)":false,"info":false}};
 const $=id=>document.getElementById(id);
 
@@ -477,15 +494,17 @@ function compute(){
   }
   const order=Object.fromEntries(CATS.map((c,i)=>[c,i]));
   zones.sort((a,b)=>(order[a.p.categorie]-order[b.p.categorie])||(a.dist-b.dist));
-  result={P,w0,w1,sect,zones};
+  result={P,w0,w1,sect,zones,hors:horsZone(P)};
   draw(); renderList();
 }
 function draw(){
   const {P,sect,zones}=result;
-  sectorLayer?.remove(); targetMarker?.remove();
+  sectorLayer?.remove(); targetMarker?.remove(); horsLayer?.remove(); horsLayer=null;
   for(const g of Object.values(groups)) g.clearLayers(); polys=[];
   const cs=getComputedStyle(document.documentElement), col=k=>cs.getPropertyValue(k).trim();
   sectorLayer=L.polygon(sect,{color:col("--navy"),weight:2,fillOpacity:.04,interactive:false}).addTo(map);
+  if(result.hors) horsLayer=L.polygon(result.hors.poly,{color:col("--warn"),weight:1.5,dashArray:"4 4",fillColor:col("--grey"),
+    fillOpacity:.28,interactive:false}).addTo(map);
   if(window._target) targetMarker=L.circleMarker(window._target,{radius:4,color:col("--navy"),interactive:false}).addTo(map);
   // dessin : info en dessous, puis SUP, actives au-dessus ; grandes zones d'abord
   const rank={info:0,[C_NA]:0,[C_IN]:0,active:2};
@@ -518,7 +537,8 @@ function renderList(){
   $("badge").textContent=zs.length;
   $("nAff").textContent=zs.length; $("nTout").textContent=result.zones.length;
   const nAct=zs.filter(z=>z.p.categorie==="active"&&!estW(z)).length, nZW=zs.filter(estW).length;
-  $("summary").innerHTML=(window._passe?`<div class="hint" style="color:var(--warn)"><b>Créneau terminé</b> : les zones ne sont affichées que pour un créneau à venir. Choisissez un autre jour dans l'onglet Secteur, ou cochez « Afficher aussi les créneaux terminés » dans l'onglet Affichage.</div>`:"")
+  $("summary").innerHTML=(result.hors?`<div class="hint" style="color:var(--warn)"><b>${Math.max(1,Math.round(result.hors.frac*100))} % du secteur hors de la zone relevée</b> (partie grisée) : les NOTAM n'y sont pas connus, une absence de zone n'y veut rien dire.</div>`:"")
+    +(window._passe?`<div class="hint" style="color:var(--warn)"><b>Créneau terminé</b> : les zones ne sont affichées que pour un créneau à venir. Choisissez un autre jour dans l'onglet Secteur, ou cochez « Afficher aussi les créneaux terminés » dans l'onglet Affichage.</div>`:"")
     +`<span class="chip act">${nAct} actives (interdites VFR)</span>`+(nZW?`<span class="chip" style="color:var(--amber)">${nZW} zones W et D</span>`:"")+`<span class="chip sup">${n(C_RADIO)} SUP activables</span>`+(n(C_VERIF)?`<span class="chip sup">${n(C_VERIF)} SUP non interprété(s)</span>`:"")
     +(hidden?`<span class="chip inf">${hidden} masquées par les filtres</span>`:"");
   // Rappel des filtres en cours (ils sont memorises par le navigateur d'une carte a l'autre)

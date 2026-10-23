@@ -74,6 +74,9 @@ affiche toutes les zones en permanence — vérifiez alors l'horaire dans le nom
 
 ## Bon à savoir
 
+- Le relevé couvre la France et une **bande de 100 km** autour. Si le secteur va plus loin à l'étranger, la partie
+  non couverte est **grisée** (pointillé orange) avec un avertissement : les NOTAM n'y sont pas connus, une absence
+  de zone n'y veut rien dire.
 - L'**âge du relevé** est indiqué en haut (« il y a 20 min »). Au-delà de 2 h, la mise à jour a eu un incident.
 - Tous les horaires sont en **UTC** : heure française = UTC + 1 h en hiver, UTC + 2 h en été.
 - Les **zones belges** viennent d'une base non officielle (LVZC) complétée par l'AIP belge ; c'est indiqué dans la

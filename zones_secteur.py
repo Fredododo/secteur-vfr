@@ -1549,7 +1549,8 @@ def vertical(n):
 
 
 COUNTRY_PREFIX = {"LF": "France", "EB": "Belgique", "EL": "Luxembourg", "ED": "Allemagne", "ET": "Allemagne",
-                  "EH": "Pays-Bas", "EG": "Royaume-Uni", "LS": "Suisse", "LI": "Italie", "LE": "Espagne"}
+                  "EH": "Pays-Bas", "EG": "Royaume-Uni", "LS": "Suisse", "LI": "Italie", "LE": "Espagne",
+                  "LO": "Autriche", "LN": "Monaco"}
 
 
 def notam_country(n):
@@ -1981,7 +1982,10 @@ def main():
                      "fenetre": [dt.datetime(day.year, day.month, day.day, tzinfo=UTC).strftime("%Y-%m-%dT%H:%MZ"),
                                  (dt.datetime(day.year, day.month, day.day, tzinfo=UTC) + dt.timedelta(days=1)
                                   ).strftime("%Y-%m-%dT%H:%MZ")],
-                     "nb_zones": len(rows), "source": source},
+                     "nb_zones": len(rows), "source": source,
+                     # zone relevee (cylindres SOFIA) : la page signale la partie du secteur qui en sort
+                     **({"cylindres": meta["cylindres"], "rayon_nm": meta.get("rayon_nm", 100)}
+                        if a.releve and meta.get("cylindres") else {})},
             "features": [zone_feature(r) for r in rows]}
     preset = {"lat": round(lat0, 6), "lon": round(lon0, 6), "axe": a.axe, "ouv": a.ouverture, "ray": a.rayon_km,
               "jour": day.isoformat(), "deb": f"{w0:%H:%M}", "fin": f"{w1:%H:%M}", "source": source}

@@ -45,7 +45,9 @@ python zones_secteur.py --lat 483842N --lon 0010559E --axe 120 --date 2026-10-20
 python releve_france.py
 ```
 
-Interroge SOFIA avec 17 cylindres de 100 NM couvrant la métropole et la Corse, sur 48 h à partir de maintenant
+Interroge SOFIA avec 23 cylindres de 100 NM couvrant la métropole, la Corse et une bande de 100 km autour
+(`BANDE_KM` : zones étrangères proches — SOFIA renvoie aussi les NOTAM belges, allemands, suisses, italiens,
+espagnols, britanniques…), sur 48 h à partir de maintenant
 (pause de 2 s entre requêtes), et écrit `releves/AAAA-MM-JJTHHZ.json` (GeoJSON : géométrie, lignes OpenAir d'origine,
 limites, créneaux UTC), `releves/latest.json` et `releves/index.json`. Les 24 relevés les plus récents sont conservés.
 Durée : environ 4 min la première fois (téléchargement des PDF SUP AIP), moins ensuite. Taille : environ 2 Mo.
@@ -79,6 +81,10 @@ La page a quatre onglets :
 - **Export** : OpenAir avec cercles et arcs natifs, deux boutons : « Zones affichées (après filtres) » et
 « Toutes les zones du secteur » (sans filtres, plancher < FL115, suffixe `_complet`).
 Vérifié le 20/10/2026 : mêmes zones et créneaux que `zones_secteur.py --releve` (Jeufosse, 21/10).
+
+La **zone relevée** (réunion des cylindres, enregistrée dans `meta.cylindres` / `meta.rayon_nm`) est comparée au
+secteur : la partie du secteur qui en sort est **grisée** sur la carte, avec le pourcentage concerné, car les NOTAM n'y
+sont pas connus (une absence de zone n'y signifie rien).
 
 ## Sorties (`resultats/`)
 

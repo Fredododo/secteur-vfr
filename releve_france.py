@@ -2,7 +2,7 @@
 """
 Releve horaire des zones actives sur toute la France (metropole + Corse).
 
-Interroge SOFIA-Briefing avec des cylindres de 100 NM qui couvrent le territoire, sur une fenetre
+Interroge SOFIA-Briefing avec des cylindres de 100 NM qui couvrent le territoire et une bande de 100 km autour, sur une fenetre
 de 48 h a partir de maintenant, puis ecrit un fichier GeoJSON pret a l'emploi :
 
     releves/AAAA-MM-JJTHHZ.json   un fichier par releve (les 24 plus recents sont conserves)
@@ -43,35 +43,40 @@ FRANCE = [
 ]
 CORSE = [(43.05, 9.45), (42.00, 9.60), (41.30, 9.20), (41.90, 8.55), (42.65, 8.55)]
 Q_RADIUS_NM = 100
+BANDE_KM = 100          # bande couverte autour de la France (zones etrangeres proches)
 
 
-def couverture(frame, radius_nm=Q_RADIUS_NM):
-    """Centres de cylindres (grille hexagonale) couvrant la France et la Corse."""
+def _dist_seg(px, py, x1, y1, x2, y2):
+    dx, dy = x2 - x1, y2 - y1
+    t = max(0.0, min(1.0, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy or 1)))
+    return math.hypot(px - x1 - t * dx, py - y1 - t * dy)
+
+
+def couverture(frame, radius_nm=Q_RADIUS_NM, bande_km=BANDE_KM):
+    """Centres de cylindres (grille hexagonale) couvrant la France, la Corse et une bande de `bande_km` autour
+    (secteurs qui partent pres d'une frontiere vers l'etranger)."""
     r = radius_nm * zs.NM * 0.97
+    bande = bande_km * 1000
     polys = [[frame.xy(*p) for p in FRANCE], [frame.xy(*p) for p in CORSE]]
     xs = [x for pg in polys for x, _ in pg]
     ys = [y for pg in polys for _, y in pg]
-    # Points a couvrir : grille fine a l'interieur des contours + les contours eux-memes
+    # Points a couvrir : grille fine sur la France, la Corse et la bande autour
     pts = []
     step = 20000
-    for x in range(int(min(xs)), int(max(xs)) + step, step):
-        for y in range(int(min(ys)), int(max(ys)) + step, step):
-            if any(zs.point_in_poly(x, y, pg) for pg in polys):
+    for x in range(int(min(xs) - bande), int(max(xs) + bande) + step, step):
+        for y in range(int(min(ys) - bande), int(max(ys) + bande) + step, step):
+            if any(zs.point_in_poly(x, y, pg) for pg in polys) or any(
+                    _dist_seg(x, y, *pg[i - 1], *pg[i]) <= bande for pg in polys for i in range(len(pg))):
                 pts.append((x, y))
-    for pg in polys:
-        for i in range(len(pg)):
-            (x1, y1), (x2, y2) = pg[i - 1], pg[i]
-            for k in range(10):
-                pts.append((x1 + (x2 - x1) * k / 10, y1 + (y2 - y1) * k / 10))
     # Grille hexagonale ; on ne garde que les centres utiles, puis on comble les trous eventuels
     dx = r * math.sqrt(3) * 0.98
     dy = r * 1.5 * 0.98
     centres = []
     row = 0
-    y = min(ys) - r
-    while y <= max(ys) + r:
-        x = min(xs) - r + (dx / 2 if row % 2 else 0)
-        while x <= max(xs) + r:
+    y = min(ys) - bande - r
+    while y <= max(ys) + bande + r:
+        x = min(xs) - bande - r + (dx / 2 if row % 2 else 0)
+        while x <= max(xs) + bande + r:
             if any(math.hypot(px - x, py - y) <= r for px, py in pts):
                 centres.append((x, y))
             x += dx
@@ -177,6 +182,7 @@ def main():
             "nb_notam": len(notams),
             "nb_zones": len(feats),
             "cylindres": [[round(la, 4), round(lo, 4)] for la, lo in centres],
+            "rayon_nm": Q_RADIUS_NM,                 # rayon des cylindres : zone relevee = leur reunion
             "erreurs": erreurs,
             "sources": ["SOFIA-Briefing (SIA/DGAC)", "SUP AIP (SIA)", "planeur-net (AIP France)"],
             "avertissement": "Outil d'aide : ne remplace pas le briefing officiel.",
