@@ -273,12 +273,48 @@ def query_centres(frame, axis, half, radius_m, q_radius_nm):
 # SUP AIP
 # --------------------------------------------------------------------------
 
-def sup_aip_list():
-    """Liste des SUP AIP Metropole en vigueur : {'146/26': {titre, du, au, pdf}}."""
+class ListeSup(dict):
+    """Liste des SUP AIP ; .info = {lu (date de lecture sur le site du SIA), copie (True : derniere liste lue,
+    le site n'a pas repondu), nb}."""
+    info = {}
+
+
+def sup_aip_list(cache_dir=None):
+    """Liste des SUP AIP Metropole en vigueur : {'146/26': {titre, du, au, pdf}}. Relue sur le site du SIA a chaque
+    appel ; si le site ne repond pas (ou si la page ne se lit plus), la derniere liste lue (cache_dir/sup_liste.json)
+    est reprise, avec info["copie"] = True."""
+    copie = os.path.join(cache_dir, "sup_liste.json") if cache_dir else None
     try:
-        t = requests.get(SUP_LIST, timeout=60, headers={"User-Agent": "Mozilla/5.0"}).content.decode("utf-8", "replace")
-    except Exception:
-        return {}
+        sups = _lire_sup_list()
+        if len(sups) < 10:                       # page vide ou format change : pas une vraie liste
+            raise ValueError(f"{len(sups)} SUP lus")
+    except Exception as e:
+        if copie and os.path.exists(copie):
+            with open(copie, encoding="utf-8") as f:
+                c = json.load(f)
+            print(f"  ** Liste des SUP AIP illisible ({e}) : reprise de la liste lue le {c['lu']} **")
+            out = ListeSup(c["sups"])
+            out.info = {"lu": c["lu"], "copie": True, "nb": len(out)}
+            return out
+        print(f"  ** Liste des SUP AIP illisible ({e}), et pas de copie : SUP AIP non lus **")
+        out = ListeSup()
+        out.info = {"lu": "", "copie": True, "nb": 0}
+        return out
+    lu = dt.datetime.now(UTC).strftime("%Y-%m-%dT%H:%MZ")
+    if copie:
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(copie + ".tmp", "w", encoding="utf-8") as f:
+            json.dump({"lu": lu, "sups": sups}, f, ensure_ascii=False)
+        os.replace(copie + ".tmp", copie)
+    out = ListeSup(sups)
+    out.info = {"lu": lu, "copie": False, "nb": len(out)}
+    return out
+
+
+def _lire_sup_list():
+    r = requests.get(SUP_LIST, timeout=60, headers={"User-Agent": "Mozilla/5.0"})
+    r.raise_for_status()
+    t = r.content.decode("utf-8", "replace")
     sups = {}
     for row in re.findall(r'<tr class="tr_ligne_document[^"]*">(.*?)</tr>', t, re.S):
         m = re.search(r'href="([^"]+)"[^>]*>\s*<b>(\d{3})/(20\d{2})</b>\s*<span>(.*?)<i', row, re.S)
@@ -1975,7 +2011,9 @@ def zone_name(n):
 def prepare_context(notams):
     """SUP AIP en vigueur, base des espaces permanents, PDF des SUP cites par les NOTAM."""
     here = os.path.dirname(os.path.abspath(__file__))
-    sups = sup_aip_list()
+    sups = sup_aip_list(os.path.join(here, "cache"))
+    print(f"Liste des SUP AIP : {sups.info['nb']} SUP, lue le {sups.info['lu'] or '?'}"
+          + (" (COPIE : site du SIA indisponible)" if sups.info["copie"] else ""))
     db = load_airspace_db(os.path.join(here, "cache"))
     print(f"Base des espaces permanents : {len(db)} identifiants")
     sc = SupCache(sups, os.path.join(here, "cache"), db)

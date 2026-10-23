@@ -793,13 +793,18 @@ function initSnapshot(s){
   const dfr=d=>d?d.split("-").reverse().join("/"):"";
   $("basesInfo").textContent=s.meta.bases?" Bases de zones : "+s.meta.bases.map(b=>`${b.base} ${dfr(b.date_edition)||b.edition}`
     +(b.ancienne?" (édition ancienne)":"")).join(", ")+".":"";
+  const sl=s.meta.sup_liste;
+  if(sl) $("basesInfo").textContent+=` Liste des SUP AIP du SIA : ${sl.lu?`lue le ${dmy(parseZ(sl.lu))} à ${hm(parseZ(sl.lu))}Z`:"non lue"}`
+    +(sl.copie?" (site du SIA indisponible au dernier relevé)":"")+".";
   $("nFrance").textContent=s.features.length;
   SNAP=s; const m=s.meta, gen=parseZ(m.genere), age=(Date.now()-gen)/6e4;
   const f0=parseZ(m.fenetre[0]), f1=parseZ(m.fenetre[1]);
-  $("snap").classList.toggle("old",age>120);
+  $("snap").classList.toggle("old",age>120||!!(sl&&sl.copie));
   $("snap").innerHTML=`Relevé SOFIA du ${dmy(gen)} à ${hm(gen)}Z (il y a ${age<90?Math.round(age)+" min":Math.round(age/60)+" h"})<br>`
     +`Couvre du ${dmy(f0)} ${hm(f0)}Z au ${dmy(f1)} ${hm(f1)}Z · ${m.nb_zones} zones ${PRESET?"dans ce secteur":"France"}`
-    +(age>120?`<br>Relevé ancien : les activations récentes peuvent manquer.`:"");
+    +(age>120?`<br>Relevé ancien : les activations récentes peuvent manquer.`:"")
+    +(sl&&sl.copie?`<br>Liste des SUP AIP non mise à jour (site du SIA indisponible) : `
+      +(sl.lu?`dates des SUP du ${dmy(parseZ(sl.lu))} à ${hm(parseZ(sl.lu))}Z.`:"SUP AIP non lus.") :"");
   // jours couverts par le releve
   const days=[]; for(let d=new Date(Date.UTC(f0.getUTCFullYear(),f0.getUTCMonth(),f0.getUTCDate())); d<f1; d=new Date(+d+864e5)) days.push(d.toISOString().slice(0,10));
   $("jour").innerHTML=days.map(d=>`<option value="${d}">${d.split("-").reverse().join("/")}</option>`).join("");

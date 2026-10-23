@@ -156,6 +156,11 @@ trigger NOTAM, qui ne fait qu'annoncer le SUP. Le listing est relu à chaque rel
   même : ses zones apparaissent sans numéro de NOTAM, avec la mention « SUP en vigueur d'après le listing SIA (pas
   de trigger NOTAM) ». Seuls les SUP dont le PDF donne des zones tracées sont concernés (pas les travaux
   d'aérodrome).
+
+La liste est relue sur le site du SIA à chaque relevé (toutes les heures) et copiée dans `cache/sup_liste.json`. Si
+le site ne répond pas, ou si sa page ne donne pas une vraie liste (moins de 10 SUP), la dernière liste lue est
+reprise : le relevé l'indique (`meta.sup_liste` : date de lecture, `copie`), la page affiche « Liste des SUP AIP
+non mise à jour » sous l'heure du relevé, et le bas de la page donne la date de lecture de la liste.
 Horaires fixes lus : périodes « du … au … », plages « de HHMM à HHMM » / « HHMM-HHMM » / H24, lever et coucher du soleil (« SR-30 », « SS+30 », « SR+2HR », « SS-1HR », « SR PLUS 02H00 », calculés à la position du NOTAM ; une plage de nuit commencée la veille compte pour la journée), jours (« sauf samedi, dimanche »,
 « uniquement le … », « du lundi au vendredi »), décalage « été : -1 h » (ou « - 01H00 »), « sauf / hors jours fériés » et
 « hors veilles de jours fériés », tableaux de jours précis (« MARS 2026 : 24,26 : 0700-1200 ET 1700-2259 ») ; quand le tableau couvre plusieurs zones dont les colonnes sont perdues à la lecture du PDF, chaque zone garde les jours compris dans sa propre période (« ZRT … - du … au … »). Les jours fériés de France métropolitaine sont calculés (dates fixes + Pâques,
