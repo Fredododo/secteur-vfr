@@ -860,6 +860,62 @@ def _arc(center, r_m, az1, az2, cw):
     return pts
 
 
+# --------------------------------------------------------------------------
+# Bases telechargees (cache) : date du dernier telechargement et edition
+# --------------------------------------------------------------------------
+
+RECHARGE_JOURS = 7          # une base est retelechargee si son dernier telechargement date de plus de 7 jours
+EDITION_ANCIENNE_JOURS = 60  # au-dela (environ 2 cycles AIRAC), l'edition est signalee comme ancienne
+MOIS_EN = {m: i + 1 for i, m in enumerate("JANUARY FEBRUARY MARCH APRIL MAY JUNE JULY AUGUST SEPTEMBER OCTOBER "
+                                          "NOVEMBER DECEMBER".split())}
+
+
+def _telecharge(path):
+    """Date du dernier telechargement : fichier « .date » ecrit a cote (garde par le cache GitHub quelle que soit la
+    date du fichier restaure), sinon date de modification du fichier."""
+    try:
+        with open(path + ".date", encoding="utf-8") as f:
+            return dt.datetime.fromisoformat(f.read().strip())
+    except Exception:
+        return dt.datetime.fromtimestamp(os.path.getmtime(path), UTC) if os.path.exists(path) else None
+
+
+def _a_recharger(path):
+    t = _telecharge(path)
+    return t is None or (dt.datetime.now(UTC) - t).total_seconds() > RECHARGE_JOURS * 86400
+
+
+def _marquer(path):
+    with open(path + ".date", "w", encoding="utf-8") as f:
+        f.write(dt.datetime.now(UTC).isoformat(timespec="seconds"))
+
+
+def _date_texte(t):
+    """2026-10-02 / 31 MARCH 2026 / 15th September 2026 -> date, ou None."""
+    m = re.search(r"(\d{4})-(\d{2})-(\d{2})", t or "")
+    if m:
+        return dt.date(int(m[1]), int(m[2]), int(m[3]))
+    m = re.search(r"(\d{1,2})(?:ST|ND|RD|TH)?\s+([A-Z]+)\s+(\d{4})", (t or "").upper())
+    if m and m[2] in MOIS_EN:
+        return dt.date(int(m[3]), MOIS_EN[m[2]], int(m[1]))
+    return None
+
+
+def _info_base(nom, path, motif):
+    """Edition (lue dans l'en-tete du fichier), date de l'edition et du dernier telechargement d'une base."""
+    if not os.path.exists(path):
+        return {"base": nom, "edition": "indisponible", "ancienne": True}
+    with open(path, encoding="utf-8", errors="replace") as f:
+        entete = f.read(3000)
+    m = re.search(motif, entete, re.I | re.S)
+    edition = re.sub(r"\s+", " ", m.group(1)).strip() if m else "edition inconnue"
+    d_ed = _date_texte(edition)
+    t = _telecharge(path)
+    return {"base": nom, "edition": edition, "date_edition": d_ed.isoformat() if d_ed else None,
+            "telecharge": t.strftime("%Y-%m-%dT%H:%MZ") if t else None,
+            "ancienne": bool(d_ed and (dt.date.today() - d_ed).days > EDITION_ANCIENNE_JOURS)}
+
+
 FFVL_DATASETS = "https://www.data.gouv.fr/api/1/organizations/federation-francaise-de-vol-libre/datasets/?page_size=50"
 
 
@@ -870,7 +926,7 @@ def sites_ffvl(cache_dir):
     s statut ('' actif, 'A' autorisation requise, 'I' interdit). None si la liste est indisponible."""
     os.makedirs(cache_dir, exist_ok=True)
     path = os.path.join(cache_dir, "ffvl_terrains.json")
-    fresh = os.path.exists(path) and (dt.datetime.now().timestamp() - os.path.getmtime(path)) < 7 * 86400
+    fresh = not _a_recharger(path)
     if not fresh:
         try:
             ds = requests.get(FFVL_DATASETS, timeout=60).json()["data"]
@@ -882,6 +938,7 @@ def sites_ffvl(cache_dir):
             with open(path + ".tmp", "wb") as f:
                 f.write(r.content)
             os.replace(path + ".tmp", path)
+            _marquer(path)
         except Exception as e:
             print(f"  (sites FFVL indisponibles : {e})")
     if not os.path.exists(path):
@@ -908,25 +965,42 @@ def sites_ffvl(cache_dir):
 def load_airspace_db(cache_dir):
     os.makedirs(cache_dir, exist_ok=True)
     path = os.path.join(cache_dir, "france_planeur-net.txt")
-    fresh = os.path.exists(path) and (dt.datetime.now().timestamp() - os.path.getmtime(path)) < 7 * 86400
+    fresh = not _a_recharger(path)
     if not fresh:
         try:
             r = requests.get(AIRSPACE_URL, timeout=120)
             r.raise_for_status()
             with open(path, "w", encoding="utf-8") as f:
                 f.write(r.text)
+            _marquer(path)
         except Exception as e:
             if not os.path.exists(path):
                 print(f"  (base des espaces permanents indisponible : {e})")
                 return {}
     db = AirspaceDB()
+    fr = _info_base("France (planeur-net)", path, r"version=\s*\S+\s+(\d{4}-\d{2}-\d{2})")
+    with open(path, encoding="utf-8", errors="replace") as f:
+        src = re.search(r"SOURCE:\s*([^*\n]+?)\s*\*", f.read(3000))
+    if src:                                  # date du fichier (fait foi pour l'anciennete) + source annoncee en en-tete
+        fr["edition"] = f"fichier du {fr['edition']}, en-tete : {src.group(1).strip().lower()}"
     for rec in parse_openair(path):
-        rec["source"] = "base AIP (planeur-net)"
+        rec["source"] = f"base AIP (planeur-net, {fr['date_edition'] or 'date inconnue'})"
         for key in zone_keys(rec["an"]):
             db.setdefault(key, rec)
     db.be = load_lvzc(cache_dir)
     db.de = load_daec(cache_dir)
     db.comp = load_complements()
+    db.infos = [fr, _info_base("Belgique, Luxembourg (LVZC)", os.path.join(cache_dir, "belgique_lvzc.txt"),
+                               r"LAST UPDATED\s+([^\n*]+)"),
+                _info_base("Allemagne (DAeC)", os.path.join(cache_dir, "allemagne_daec.txt"),
+                           r"effective from\s+([^\n*]+)")]
+    # Edition de plus de 2 mois : signalee dans la source de chaque zone tiree de cette base
+    for base, info in ((db, db.infos[0]), (db.be, db.infos[1]), (db.de, db.infos[2])):
+        if info.get("ancienne"):
+            for rec in {id(r): r for r in base.values()}.values():
+                for zz in [rec] + rec.get("autres", []):
+                    if "edition ancienne" not in zz["source"]:
+                        zz["source"] += " - edition ancienne, verifier l'AIP"
     return db
 
 
@@ -936,6 +1010,7 @@ class AirspaceDB(dict):
     be = {}
     de = {}
     comp = {}
+    infos = []          # edition et date de telechargement de chaque base (publiees dans le releve)
 
 
 def load_complements():
@@ -963,7 +1038,7 @@ def load_lvzc(cache_dir):
     fichier « BELLUX WEEK ALL » de la derniere edition. Cache de 7 jours.
     Une zone decoupee en plusieurs parties (BEL / FRA) garde ses parties dans rec["autres"]."""
     path = os.path.join(cache_dir, "belgique_lvzc.txt")
-    fresh = os.path.exists(path) and (dt.datetime.now().timestamp() - os.path.getmtime(path)) < 7 * 86400
+    fresh = not _a_recharger(path)
     if not fresh:
         try:
             s = requests.Session()
@@ -986,6 +1061,7 @@ def load_lvzc(cache_dir):
             r.raise_for_status()
             with open(path, "w", encoding="utf-8") as f:
                 f.write(r.content.decode("utf-8", "replace"))
+            _marquer(path)
         except Exception as e:
             if not os.path.exists(path):
                 print(f"  (base Belgique LVZC indisponible : {e})")
@@ -1021,7 +1097,7 @@ def load_daec(cache_dir):
     """Espace aerien Allemagne en OpenAir (DAeC, Deutscher Aero Club, fichier de la commission vol a voile publie
     gratuitement, NON OFFICIEL) : zones ED-R (dont les TRA, EDR2xx) et ED-D. Derniere edition, cache de 7 jours."""
     path = os.path.join(cache_dir, "allemagne_daec.txt")
-    fresh = os.path.exists(path) and (dt.datetime.now().timestamp() - os.path.getmtime(path)) < 7 * 86400
+    fresh = not _a_recharger(path)
     if not fresh:
         try:
             s = requests.Session()
@@ -1037,6 +1113,7 @@ def load_daec(cache_dir):
             with open(path + ".tmp", "w", encoding="utf-8") as f:
                 f.write(r.content.decode("utf-8", "replace"))
             os.replace(path + ".tmp", path)
+            _marquer(path)
         except Exception as e:
             if not os.path.exists(path):
                 print(f"  (base Allemagne DAeC indisponible : {e})")

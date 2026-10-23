@@ -157,6 +157,9 @@ def main():
         sys.exit(f"{len(erreurs)} cylindre(s) en echec : releve incomplet abandonne, le precedent est conserve.")
 
     ctx = zs.prepare_context(notams)
+    for b in ctx["db"].infos:
+        print(f"  base {b['base']} : {b['edition']}, telechargee {b.get('telecharge')}"
+              + ("  ** EDITION ANCIENNE **" if b.get("ancienne") else ""))
     zones = {}
     d = start.date()
     while dt.datetime(d.year, d.month, d.day, tzinfo=UTC) < end:
@@ -183,6 +186,7 @@ def main():
             "nb_zones": len(feats),
             "cylindres": [[round(la, 4), round(lo, 4)] for la, lo in centres],
             "rayon_nm": Q_RADIUS_NM,                 # rayon des cylindres : zone relevee = leur reunion
+            "bases": ctx["db"].infos,                # editions des bases de zones permanentes
             "erreurs": erreurs,
             "sources": ["SOFIA-Briefing (SIA/DGAC)", "SUP AIP (SIA)", "planeur-net (AIP France)"],
             "avertissement": "Outil d'aide : ne remplace pas le briefing officiel.",

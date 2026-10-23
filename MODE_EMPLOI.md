@@ -48,7 +48,9 @@ suivantes. Seules les zones dont le plancher est **sous le FL115** sont relevée
 - **Afficher aussi les créneaux terminés** : décochée, la page ne montre que les activités en cours ou à venir ;
   cochée, elle garde les activités déjà terminées depuis l'heure du relevé, marquées « terminé ».
 
-Vos réglages sont gardés par votre navigateur d'une visite à l'autre.
+Vos réglages (secteur, filtres, onglet) sont gardés **par votre navigateur**, sur votre appareil : rien n'est
+envoyé en ligne. Chaque personne, et chaque appareil (téléphone, PC), a donc ses propres réglages ; en navigation
+privée ou après effacement des données du site, on repart des réglages par défaut.
 
 ## 3. Onglet « Zones » : consulter
 
@@ -79,6 +81,9 @@ affiche toutes les zones en permanence — vérifiez alors l'horaire dans le nom
   de zone n'y veut rien dire.
 - L'**âge du relevé** est indiqué en haut (« il y a 20 min »). Au-delà de 2 h, la mise à jour a eu un incident.
 - Tous les horaires sont en **UTC** : heure française = UTC + 1 h en hiver, UTC + 2 h en été.
+- Le bas de la page indique l'**édition de chaque base de zones** utilisée (France, Belgique-Luxembourg,
+  Allemagne). Une édition de plus de 2 mois est signalée « édition ancienne », aussi dans la fiche des zones
+  concernées : vérifiez alors leur tracé dans l'AIP.
 - Les **zones belges et luxembourgeoises** viennent d'une base non officielle (LVZC) complétée par l'AIP belge, les
   **zones allemandes** (ED-R, TRA, ED-D) de la base du DAeC, non officielle elle aussi ; c'est indiqué dans la fiche
   de chaque zone. Ailleurs à l'étranger, une zone citée sans coordonnées est tracée avec le cercle du NOTAM

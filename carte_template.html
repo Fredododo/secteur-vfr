@@ -219,7 +219,7 @@ body.collapsed #panel{display:none}
   </section>
 
   <p class="legal">Outil d'aide à la préparation : il ne remplace pas le briefing officiel (SOFIA, NOTAM, AZBA).
-    Sources : SOFIA-Briefing (SIA/DGAC), SUP AIP, base AIP planeur-net.</p>
+    Sources : SOFIA-Briefing (SIA/DGAC), SUP AIP, base AIP planeur-net.<span id="basesInfo"></span></p>
 </aside>
 <div id="map"></div>
 
@@ -694,6 +694,10 @@ document.querySelector(".tabs").addEventListener("keydown",e=>{
 try{ setTab(localStorage.getItem("secteurVFR.tab")||"secteur"); }catch(e){ setTab("secteur"); }
 
 function initSnapshot(s){
+  // Editions des bases de zones permanentes utilisees par le releve (« ancienne » : plus de 2 mois)
+  const dfr=d=>d?d.split("-").reverse().join("/"):"";
+  $("basesInfo").textContent=s.meta.bases?" Bases de zones : "+s.meta.bases.map(b=>`${b.base} ${dfr(b.date_edition)||b.edition}`
+    +(b.ancienne?" (édition ancienne)":"")).join(", ")+".":"";
   SNAP=s; const m=s.meta, gen=parseZ(m.genere), age=(Date.now()-gen)/6e4;
   const f0=parseZ(m.fenetre[0]), f1=parseZ(m.fenetre[1]);
   $("snap").classList.toggle("old",age>120);

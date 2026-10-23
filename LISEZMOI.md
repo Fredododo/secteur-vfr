@@ -181,6 +181,17 @@ Chaque zone porte aussi `* Pays : …` : elle n'est reprise que pour un NOTAM du
 Contenu actuel (Belgique, AIP valide à partir du 01/10/2026) : TSA26A ARDENNES 01 (ENR 5.2, FL95-UNL) et
 EBR17D LOMBARDSIJDE SECTOR DELTA (ENR 5.1, SFC-500 ft AMSL, polygone + arc de 2,5 NM, bord sud sur la plage).
 
+## Mise à jour des bases de zones permanentes
+
+À chaque relevé, `load_airspace_db()` relit les bases du dossier `cache/` et retélécharge celles dont le dernier
+téléchargement date de plus de 7 jours (`RECHARGE_JOURS`). La date de téléchargement est écrite dans un fichier
+`<base>.date` à côté de la base : elle reste juste quand GitHub restaure le cache (la date du fichier n'est pas
+utilisée). En cas d'échec, la copie précédente est gardée. L'édition de chaque base (date du fichier planeur-net,
+« LAST UPDATED » de la LVZC, « effective from » du DAeC) est publiée dans le relevé (`meta.bases`), affichée en bas
+de la page et écrite dans le journal du relevé ; une édition de plus de 60 jours (`EDITION_ANCIENNE_JOURS`) est
+signalée « édition ancienne » dans la source des zones concernées. Au 23/10/2026, la LVZC n'a rien publié depuis
+son édition du 31/03/2026.
+
 ## Zones allemandes
 
 Base **DAeC** (Deutscher Aero Club, commission vol à voile) : fichier OpenAir de l'espace aérien allemand, publié
