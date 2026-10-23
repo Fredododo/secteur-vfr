@@ -123,7 +123,7 @@ sont pas connus (une absence de zone n'y signifie rien).
 | info | NOTAM d'information (modification, suspension…) ; aussi les NOTAM dont l'interdiction ne vise que les drones
 (« PROHIBITED FOR ALL RPAS », « OVERFLIGHT PROHIBITED FOR UAS AND MODEL ACFT », ZIT « interdites aux aéronefs sans
 équipage », « FOR UAS ONLY »), sauf si le texte impose la zone à tous (ZRT, contournement obligatoire, zone réservée
-aux vols de drones) — `drones_seulement()` |
+aux vols de drones) — `drones_seulement()` ; et les lâchers de ballons libres (code Q `WL`, radiosondages) |
 
 Une zone de SUP activée par NOTAM n'apparaît qu'une fois (la copie issue du trigger NOTAM est retirée).
 Horaires fixes lus : périodes « du … au … », plages « de HHMM à HHMM » / « HHMM-HHMM » / H24, lever et coucher du soleil (« SR-30 », « SS+30 », « SR+2HR », « SS-1HR », « SR PLUS 02H00 », calculés à la position du NOTAM ; une plage de nuit commencée la veille compte pour la journée), jours (« sauf samedi, dimanche »,

@@ -2022,6 +2022,9 @@ def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFO
                 name += f" ({k + 1})"
             if zcat != "info" and drones_seulement(e_up):
                 zcat, act, motif = "info", act, "Interdiction visant seulement les drones (RPAS, UAS, aeromodeles)"
+            # Lachers de ballons libres (code Q WL : radiosondages...) : sans interet pour le vol libre
+            if zcat != "info" and code.startswith("WL"):
+                zcat, motif = "info", "Lacher de ballons libres (radiosondage) : classe en information"
             rows.append({
                 "categorie": zcat,
                 "activation": activation,
