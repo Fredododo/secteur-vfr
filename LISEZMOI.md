@@ -177,6 +177,9 @@ L'API interne de la carte AZBA n'est pas utilisée (accès protégé) : pour un 
 Format **OpenAir extended** (spécification Naviter, comme le fichier planeur-net de la FFVP) : `AC UNC`
 (classe OACI : non classé) puis `AY` pour le type (`R` réglementée, `Q` dangereuse, y compris les avertissements W,
 `P` interdite), au lieu de l'ancien `AC R` / `AC Q` / `AC P`.
+Pour une zone de SUP AIP, le nom (`AN`) se termine par le NOTAM et le numéro du SUP (« (R0750/26 SUP 042/26) ») —
+XCSoar et XCTrack n'affichent que le nom — et le lien du PDF officiel est en commentaire (le format OpenAir n'a pas
+de champ pour un lien).
 Horaires d'activation en lignes `AA` (UTC, triées, fusionnées si elles se touchent) : tous les créneaux du relevé
 dans l'export de la page, les créneaux du jour dans l'export de `zones_secteur.py` ; champ D brut en commentaire.
 XCSoar 7.44 ignore `AA` sans erreur (fichier de test `analyses/test_aa_xcsoar.py`, 8 zones toutes affichées) ;

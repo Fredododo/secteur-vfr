@@ -631,12 +631,13 @@ function oaBloc(p, heures){
   {
     out.push(`* ${p.notam} Q${p.code} - ${p.categorie} - geometrie : ${p.geometrie}`);
     if(p.sup_aip) out.push(`* SUP AIP ${p.sup_aip} ${String(p.sup_titre).slice(0,90)}`);
+    if(p.sup_pdf) out.push(`* SUP AIP ${p.sup_aip} (PDF officiel) : ${p.sup_pdf}`);
     if(p.motif) out.push(`* ${p.motif}`);
     if(p.frequences) out.push(`* Activite reelle connue de : ${p.frequences}`);
     if(p.telephones) out.push(`* Telephone : ${p.telephones}`);
     if(p.item_d) out.push(`* Item D : ${String(p.item_d).slice(0,150)}`);
     // OpenAir extended (Naviter, comme planeur-net) : AC = classe OACI (UNC : non classe), AY = type (R, Q, P)
-    out.push("AC UNC", `AY ${["R","Q","P"].includes(p.classe)?p.classe:"R"}`, `AN ${String(p.nom).slice(0,45)}${heures} (${p.notam})`);
+    out.push("AC UNC", `AY ${["R","Q","P"].includes(p.classe)?p.classe:"R"}`, `AN ${String(p.nom).slice(0,45)}${heures} (${p.notam}${p.sup_aip?` SUP ${p.sup_aip}`:""})`);
     // premiere frequence : champs OpenAir AF (frequence) et AG (indicatif)
     const fq=String(p.frequences||"").split(" / ")[0].match(/^(.+) (\d{3}\.\d{1,3})$/);
     if(fq) out.push(`AF ${fq[2]}`, `AG ${fq[1]}`);

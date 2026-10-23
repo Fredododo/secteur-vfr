@@ -79,6 +79,10 @@ Le fichier `.txt` est au format **OpenAir extended** (comme le fichier planeur-n
 (espace non classé) et type `AY R` (réglementée), `AY Q` (dangereuse, zones W et D) ou `AY P` (interdite). Il garde
 les cercles et arcs d'origine ; la première fréquence de la zone est reprise dans les champs `AF`/`AG`.
 
+Pour une zone de SUP AIP, le nom de la zone se termine par le numéro du SUP (ex. « (R0750/26 SUP 042/26) »),
+visible dans les infos de la zone de l'instrument ; le lien du PDF officiel est en commentaire dans le fichier. En
+vol, avec du réseau, la fiche de la zone sur la page donne aussi le lien « lire le SUP ».
+
 Chaque zone porte aussi ses **horaires d'activation** (lignes `AA`, en UTC, tous les créneaux du relevé, soit
 jusqu'à 48 h) et son champ D en commentaire. Les logiciels qui lisent `AA` (SeeYou ; XCSoar dans une version
 future) affichent ou masquent la zone selon l'heure. Les autres les ignorent : testé avec **XCSoar 7.44**, qui

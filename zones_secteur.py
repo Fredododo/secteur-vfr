@@ -2070,7 +2070,8 @@ def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFO
                 "pays": notam_country(n),
                 "notam": f"{n['series']}{n['number']:04d}/{n['year']}",
                 "code": code,
-                "nom": re.sub(r"\s+", " ", name).strip(),
+                # NFKC : ligatures des PDF (« ﬁ » -> « fi ») et espaces speciaux, mal affiches par les instruments
+                "nom": re.sub(r"\s+", " ", unicodedata.normalize("NFKC", name)).strip(),
                 "plancher": re.sub(r"^FL\s*0*(\d+)", r"FL\1",
                                    re.sub(r"^0+(?=\d)", "", re.sub(r"(\d)\s+FT\b", r"\1FT", lo_.strip()))),
                 "plafond": re.sub(r"^FL\s*0*(\d+)", r"FL\1",
@@ -2273,6 +2274,8 @@ def main():
                 f.write(f"\n* {r['notam']} Q{r['code']} - {r['categorie']} - geometrie : {r['geometrie']}\n")
                 if r["sup_aip"]:
                     f.write(f"* SUP AIP {r['sup_aip']} {r['sup_titre'][:90]}\n")
+                    if r.get("sup_pdf"):
+                        f.write(f"* SUP AIP {r['sup_aip']} (PDF officiel) : {r['sup_pdf']}\n")
                 if r["item_d"]:
                     f.write(f"* Item D : {r['item_d'][:150]}\n")
                 if r.get("motif"):
@@ -2283,7 +2286,9 @@ def main():
                     f.write(f"* Telephone : {r['telephones']}\n")
                 # OpenAir extended (Naviter, comme planeur-net) : AC = classe OACI (UNC : non classe), AY = type
                 f.write(f"AC UNC\nAY {r['_class'] if r['_class'] in ('R', 'Q', 'P') else 'R'}\n")
-                f.write(f"AN {r['nom'][:45]} {r['actif_ce_jour_utc']}Z ({r['notam']})\n")
+                # numero du SUP dans le nom : seule information affichee par XCSoar / XCTrack pour retrouver le SUP
+                sup = f" SUP {r['sup_aip']}" if r.get("sup_aip") else ""
+                f.write(f"AN {r['nom'][:45]} {r['actif_ce_jour_utc']}Z ({r['notam']}{sup})\n")
                 fq = re.match(r"(.+) (\d{3}\.\d{1,3})", (r.get("frequences") or "").split(" / ")[0])
                 if fq:                                   # premiere frequence : champs OpenAir AF (frequence) et AG (indicatif)
                     f.write(f"AF {fq[2]}\nAG {fq[1]}\n")
