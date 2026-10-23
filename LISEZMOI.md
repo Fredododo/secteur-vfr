@@ -208,8 +208,9 @@ Base **LVNL** (prestataire de navigation aérienne des Pays-Bas), **officielle**
 (service ArcGIS `Airspaces_data`, licence CC BY 4.0, données « AeroDB » datées du cycle AIRAC en vigueur) — TSA,
 TRA, zones réglementées (EHR), dangereuses (EHD) et interdites (EHP), indexées par désignateur (`EHTSA54`,
 `EHTRA59A`, `EHR64`…), comme les citent les NOTAM néerlandais (« TEMPORARY SEGREGATED AREA EHTSA54 … ACTIVATED »).
-Téléchargées en GeoJSON (cache 7 jours `cache/paysbas_lvnl.json`) ; les cercles (≈1 800 points) sont réduits à
-≈360 points. Pour un NOTAM néerlandais, seule cette base est consultée.
+Téléchargées en GeoJSON (cache 7 jours `cache/paysbas_lvnl.json`). LVNL livre ses cercles densifiés (≈1 800
+points) : un contour dont tous les points sont à la même distance du centre (à 20 m près) redevient un cercle
+OpenAir `V X=` / `DC` (34 zones, ex. EHTSA54 : DC 1.06) ; les autres contours sont allégés à ≈360 points. Pour un NOTAM néerlandais, seule cette base est consultée.
 
 ## Sites de vol libre (FFVL)
 

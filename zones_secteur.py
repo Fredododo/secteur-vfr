@@ -1151,6 +1151,24 @@ def _limite_lvnl(val, unite, ref):
     return f"{int(val)}FT {'AGL' if (ref or '').upper() in ('SFC', 'GND') else 'AMSL'}"
 
 
+def _anneau_lvnl(a):
+    """Contour LVNL ([lon, lat]...) en Ring. LVNL livre ses cercles densifies (~1800 points) sans dire que ce sont
+    des cercles : un contour dont tous les points sont a la meme distance du centre (a 20 m pres) redevient un
+    cercle OpenAir V X= / DC (rayon arrondi au millieme de NM). Les autres contours sont alleges a ~360 points."""
+    if len(a) >= 200:
+        pts = a[:-1] if a[0] == a[-1] else a
+        clo, cla = sum(x for x, _ in pts) / len(pts), sum(y for _, y in pts) / len(pts)
+        ds = [GEOD.inv(clo, cla, x, y)[2] for x, y in pts]
+        r = sum(ds) / len(ds)
+        if max(ds) - min(ds) < max(20.0, 0.005 * r):
+            return circle_ll(cla, clo, round(r / NM, 3) * NM)
+    pas = max(1, len(a) // 360)
+    pts = [(la, lo) for lo, la in a[::pas]]
+    if pts[-1] != (a[-1][1], a[-1][0]):
+        pts.append((a[-1][1], a[-1][0]))
+    return Ring(pts, [f"DP {oa_pt(la, lo)}" for la, lo in pts])
+
+
 def load_lvnl(cache_dir):
     """Espace aerien Pays-Bas (LVNL, geoportail officiel, CC BY 4.0) : TSA, TRA, zones R, D et P, indexees par
     designateur (EHTSA55, EHTRA59A, EHR64, EHD41B, EHP26A). Cache de 7 jours (paysbas_lvnl.json)."""
@@ -1189,14 +1207,10 @@ def load_lvnl(cache_dir):
             [c[0] for c in g.get("coordinates", [])] if g.get("type") == "MultiPolygon" else []
         recs = []
         for a in anneaux:
-            pas = max(1, len(a) // 360)              # cercles livres en ~1800 points : 1 sur 5 suffit
-            pts = [(la, lo) for lo, la in a[::pas]]
-            if pts[-1] != (a[-1][1], a[-1][0]):
-                pts.append((a[-1][1], a[-1][0]))
             recs.append({"ac": "R", "an": f"{p.get('Designator', '')} {p.get('Name') or ''}".strip(),
                          "al": _limite_lvnl(p.get("LowerLimit"), p.get("LowerLimitUnit"), p.get("LowerLimitReference")),
                          "ah": _limite_lvnl(p.get("UpperLimit"), p.get("UpperLimitUnit"), p.get("UpperLimitReference")),
-                         "pts": Ring(pts, [f"DP {oa_pt(la, lo)}" for la, lo in pts]), "source": label})
+                         "pts": _anneau_lvnl(a), "source": label})
         if not recs:
             continue
         rec = recs[0]
