@@ -48,9 +48,10 @@ suivantes. Seules les zones dont le plancher est **sous le FL115** sont relevée
   - **SUP activables** : zones activables sans NOTAM ; l'activité réelle se connaît par radio ou par téléphone
     (numéros dans la fiche de la zone) ;
   - **Zones W et D** : voltige, parachutage, drones, zones dangereuses. Le VFR n'y est pas interdit, mais vigilance ;
-  - les NOTAM d'**activités sportives et récréatives** (parachutage, voltige, vol à voile, parapente, treuillage,
-    aéromodélisme) ne sont **pas affichés**, comme les activités permanentes du même type (AIP ENR 5.5) : leur
-    nombre est indiqué en bas de la page. Les vols de drones restent affichés ;
+  - les NOTAM d'**activités sportives et récréatives et de drones** (parachutage, voltige, vol à voile, parapente,
+    treuillage, aéromodélisme, vols de drones) ne sont **pas affichés**, comme les activités permanentes du même
+    type (AIP ENR 5.5) : le VFR n'y est pas interdit, et leur nombre est indiqué en bas de la page. Les zones
+    réglementées (ZRT, ZIT…), y compris celles créées pour des drones, restent affichées ;
   - **SUP inactifs** et **NOTAM d'information** : masqués par défaut. Les interdictions qui ne visent que les drones
     (survol interdit aux drones, ZIT drones) et les lâchers de ballons sonde sont classés en NOTAM
     d'information.

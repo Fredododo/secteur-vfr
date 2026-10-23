@@ -809,7 +809,7 @@ function initSnapshot(s){
   $("basesInfo").textContent=s.meta.bases?" Bases de zones : "+s.meta.bases.map(b=>`${b.base} ${dfr(b.date_edition)||b.edition}`
     +(b.ancienne?" (édition ancienne)":"")).join(", ")+".":"";
   if(s.meta.nb_loisirs) $("basesInfo").textContent+=` ${s.meta.nb_loisirs} NOTAM d'activités sportives et récréatives`
-    +` (parachutage, voltige, vol à voile, parapente, treuillage, aéromodélisme) non affichés.`;
+    +` et de drones (parachutage, voltige, vol à voile, parapente, treuillage, aéromodélisme, drones) non affichés.`;
   const sl=s.meta.sup_liste;
   if(sl) $("basesInfo").textContent+=` Liste des SUP AIP du SIA : ${sl.lu?`lue le ${dmy(parseZ(sl.lu))} à ${hm(parseZ(sl.lu))}Z`:"non lue"}`
     +(sl.copie?" (site du SIA indisponible au dernier relevé)":"")+".";
