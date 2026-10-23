@@ -116,7 +116,10 @@ sont pas connus (une absence de zone n'y signifie rien).
 | SUP AIP - activables | SUP « activable » (H24, avec préavis, selon protocole…) sans activation par NOTAM : activité réelle connue par radio ou téléphone (fréquences et téléphones du SUP affichés dans le pop-up, première fréquence en `AF`/`AG` dans l'OpenAir). Quand la rubrique donne des créneaux d'activabilité simples, la zone n'est affichée que sur ces créneaux |
 | SUP AIP - non interprété | rubrique d'activité non lue (SUP étranger, rubrique absente) |
 | (ignoré) itinéraire | SUP dont l'objet est un itinéraire (hélicoptères, VFR de nuit…) : ligne à suivre, pas une zone ; volontairement non interprété, aucune zone produite |
-| info | NOTAM d'information (modification, suspension…) |
+| info | NOTAM d'information (modification, suspension…) ; aussi les NOTAM dont l'interdiction ne vise que les drones
+(« PROHIBITED FOR ALL RPAS », « OVERFLIGHT PROHIBITED FOR UAS AND MODEL ACFT », ZIT « interdites aux aéronefs sans
+équipage », « FOR UAS ONLY »), sauf si le texte impose la zone à tous (ZRT, contournement obligatoire, zone réservée
+aux vols de drones) — `drones_seulement()` |
 
 Une zone de SUP activée par NOTAM n'apparaît qu'une fois (la copie issue du trigger NOTAM est retirée).
 Horaires fixes lus : périodes « du … au … », plages « de HHMM à HHMM » / « HHMM-HHMM » / H24, lever et coucher du soleil (« SR-30 », « SS+30 », « SR+2HR », « SS-1HR », « SR PLUS 02H00 », calculés à la position du NOTAM ; une plage de nuit commencée la veille compte pour la journée), jours (« sauf samedi, dimanche »,

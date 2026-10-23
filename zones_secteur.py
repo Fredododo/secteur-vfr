@@ -1847,6 +1847,24 @@ CATEGORIES = ["active", CAT_SUP_RADIO, CAT_SUP_VERIFIER, CAT_SUP_NON_ACTIVEE, CA
 NOTAM_ACTIVATION_RE = re.compile(r"(ACTIVABLE|ACTIVATED|ACTIVATION|ANNOUNCED)[^.]{0,60}\bBY\s+(?:A\s+)?(?:[\w-]+\s+)?NOTAM|"
                                  r"BY\s+NOTAM\s+(?:WITH|AT)")
 
+# NOTAM dont l'interdiction ne vise que les drones (« PROHIBITED FOR ALL RPAS », « OVERFLIGHT PROHIBITED FOR UAS AND
+# MODEL ACFT », « ZONES INTERDITES TEMPORAIRES AUX AERONEFS SANS EQUIPAGE », « FOR UAS ONLY ») : classes en NOTAM
+# d'information. Une zone que tout aeronef doit eviter (ZRT pour vols de drones, contournement obligatoire, zone
+# reservee aux vols de drones « TEMPO RESTRICTED AREA ACT FOR UNMANNED ACFT ») reste active.
+_DRONE = (r"(?:RPAS|UAS|UAV|DRONES?|UNMANNED(?:\s+AIRCRAFT|\s+ACFT)?|MODEL\s+(?:ACFT|AIRCRAFT|FLYING)|AEROMODEL\w*|"
+          r"A[EÉ]RONEFS?\s+SANS\s+(?:[EÉ]QUIPAGE|PILOTE)|T[EÉ]L[EÉ]PILOT\w*)")
+DRONES_SEULS_RE = re.compile(r"(?:PROHIBITED|NOT\s+(?:ALLOWED|PERMITTED)|FORBIDDEN|BANNED|INTERDITE?S?|INTERDICTION)\W+"
+                             r"(?:\w+\W+){0,3}?(?:FOR|TO|AUX?|POUR|PAR)\W+(?:(?:ALL|LES|TOUS|DES|THE)\W+)?" + _DRONE +
+                             r"|FOR\s+" + _DRONE + r"\s+ONLY")
+POUR_TOUS_RE = re.compile(r"CONTOURNEMENT\s+OBLIGATOIRE|COMPULSORY\s+(?:AREA\s+)?AVOIDANCE|AREA\s+PROHIBITED\b|ZRT\b|"
+                          r"TEMPO(?:RARY)?\s+RESTRICTED\s+AREA\s+ACT|ZONE\s+REGLEMENTEE|ALL\s+(?:ACFT|AIRCRAFT|FLIGHTS)|"
+                          r"TOUS\s+(?:LES\s+)?A[EÉ]RONEFS")
+
+
+def drones_seulement(texte):
+    e = re.sub(r"\s+", " ", (texte or "").upper())
+    return bool(DRONES_SEULS_RE.search(e)) and not POUR_TOUS_RE.search(e)
+
 
 def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFOND_FL, regles="V"):
     """Zones (une ligne par zone) actives le jour `day` dans le creneau [w0, w1], sans filtre geographique.
@@ -1942,6 +1960,8 @@ def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFO
             name = part["label"] or (sup.get("titre") if trig and sup.get("titre") else zone_name(n))
             if len(parts) > 1 and not part["label"]:
                 name += f" ({k + 1})"
+            if zcat != "info" and drones_seulement(e_up):
+                zcat, act, motif = "info", act, "Interdiction visant seulement les drones (RPAS, UAS, aeromodeles)"
             rows.append({
                 "categorie": zcat,
                 "activation": activation,

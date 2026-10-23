@@ -43,7 +43,8 @@ suivantes. Seules les zones dont le plancher est **sous le FL115** sont relevée
   - **SUP activables** : zones activables sans NOTAM ; l'activité réelle se connaît par radio ou par téléphone
     (numéros dans la fiche de la zone) ;
   - **Zones W et D** : voltige, parachutage, drones, zones dangereuses. Le VFR n'y est pas interdit, mais vigilance ;
-  - **SUP inactifs** et **NOTAM d'information** : masqués par défaut.
+  - **SUP inactifs** et **NOTAM d'information** : masqués par défaut. Les interdictions qui ne visent que les drones
+    (survol interdit aux drones, ZIT drones) sont classées en NOTAM d'information.
 - **Pays** : France, Belgique, Allemagne…
 - **Afficher aussi les créneaux terminés** : décochée, la page ne montre que les activités en cours ou à venir ;
   cochée, elle garde les activités déjà terminées depuis l'heure du relevé, marquées « terminé ».
