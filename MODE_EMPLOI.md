@@ -105,3 +105,7 @@ affiche toutes les zones en permanence — vérifiez alors l'horaire dans le nom
   de chaque zone. Ailleurs à l'étranger, une zone citée sans coordonnées est tracée avec le cercle du NOTAM
   (« approx. », pointillé).
 - Une zone désactivée **avant l'heure du relevé** n'y figure plus, même avec « créneaux terminés ».
+- Pour les **SUP AIP**, ce sont les dates du **listing des SUP du SIA** qui font foi (elles peuvent être corrigées
+  en rouge, plus courtes ou plus longues que dans le PDF du SUP). La page les applique ; un SUP en vigueur sans
+  trigger NOTAM apparaît aussi (« SUP en vigueur d'après le listing SIA »). Quand le listing a prolongé un SUP, la
+  fiche indique « horaires du PDF reconduits, à vérifier ».

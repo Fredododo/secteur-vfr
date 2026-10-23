@@ -143,6 +143,19 @@ Fermée, la zone du jour ne revient pas avant le lendemain (`localStorage`). Cod
 aux vols de drones) — `drones_seulement()` ; et les lâchers de ballons libres (code Q `WL`, radiosondages) |
 
 Une zone de SUP activée par NOTAM n'apparaît qu'une fois (la copie issue du trigger NOTAM est retirée).
+
+**Dates de validité des SUP : le listing du SIA fait foi.** Les dates « du / au » de la liste des SUP AIP en
+vigueur (corrigées en rouge par le SIA quand elles changent) priment sur celles du PDF du SUP et sur la validité du
+trigger NOTAM, qui ne fait qu'annoncer le SUP. Le listing est relu à chaque relevé et :
+
+- la validité d'une zone de SUP est celle du listing (colonne `validite` suivie de « (listing SIA) ») ;
+- les périodes d'activité lues dans le PDF sont raccourcies si le listing a raccourci le SUP ; si le listing l'a
+  prolongé, les périodes qui finissaient (ou commençaient) avec le SUP sont étendues, horaires du PDF reconduits,
+  avec la mention « dates prolongées par le listing SIA : horaires du PDF reconduits, à vérifier » ;
+- un SUP en vigueur d'après le listing mais cité par aucun trigger NOTAM (trigger expiré ou absent) est lu quand
+  même : ses zones apparaissent sans numéro de NOTAM, avec la mention « SUP en vigueur d'après le listing SIA (pas
+  de trigger NOTAM) ». Seuls les SUP dont le PDF donne des zones tracées sont concernés (pas les travaux
+  d'aérodrome).
 Horaires fixes lus : périodes « du … au … », plages « de HHMM à HHMM » / « HHMM-HHMM » / H24, lever et coucher du soleil (« SR-30 », « SS+30 », « SR+2HR », « SS-1HR », « SR PLUS 02H00 », calculés à la position du NOTAM ; une plage de nuit commencée la veille compte pour la journée), jours (« sauf samedi, dimanche »,
 « uniquement le … », « du lundi au vendredi »), décalage « été : -1 h » (ou « - 01H00 »), « sauf / hors jours fériés » et
 « hors veilles de jours fériés », tableaux de jours précis (« MARS 2026 : 24,26 : 0700-1200 ET 1700-2259 ») ; quand le tableau couvre plusieurs zones dont les colonnes sont perdues à la lecture du PDF, chaque zone garde les jours compris dans sa propre période (« ZRT … - du … au … »). Les jours fériés de France métropolitaine sont calculés (dates fixes + Pâques,

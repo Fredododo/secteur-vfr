@@ -491,7 +491,21 @@ class SupCache:
             else:
                 noms = [z["nom"] for z in self.mem.get(num, [])]
                 self.act[key] = sup_activite(self.texts.get(num, ""), zone, noms)
+                caler_sur_listing(self.act[key], self.sups.get(num), self.dates_pdf(num))
         return self.act[key]
+
+    def dates_pdf(self, num):
+        """(premier jour, dernier jour) du SUP d'apres les periodes « du ... au ... » de son PDF, ou None."""
+        t = unicodedata.normalize("NFKD", self.texts.get(num, "")).encode("ascii", "ignore").decode().upper()
+        ds = []
+        for m in _PERIODE.finditer(re.sub(r"[ \t]+", " ", t)):
+            g = m.groups()
+            try:
+                ds.append(dt.date(int(g[2]), MOIS_FR[g[1]], int(g[0])) if g[0] else dt.date(int(g[5]), int(g[4]), int(g[3])))
+                ds.append(dt.date(int(g[9]), MOIS_FR[g[8]], int(g[7])) if g[7] else dt.date(int(g[12]), int(g[11]), int(g[10])))
+            except (ValueError, KeyError):
+                pass
+        return (min(ds), max(ds)) if ds else None
 
     def est_itineraire(self, num):
         """SUP dont l'objet est un itineraire (helicopteres, VFR de nuit...) : ligne a suivre, pas une zone.
@@ -665,11 +679,52 @@ def _tableau_jours(texte, zone=""):
     return regles or [(d, d, set(range(7)), pl, False, (None, None), False, False) for d, pl in sorted(jours.items())]
 
 
+def bornes_listing(info):
+    """Validite d'un SUP d'apres le listing du SIA (dates « du / au », corrigees en rouge quand elles changent) :
+    (debut, fin) en UTC, ou None si le listing ne donne pas de date. Ce sont ces dates qui font foi, pas celles du
+    PDF du SUP ni celles du trigger NOTAM."""
+    if not info or not info.get("du"):
+        return None
+    t0 = dt.datetime.fromisoformat(info["du"]).replace(tzinfo=UTC)
+    t1 = (dt.datetime.fromisoformat(info["au"]).replace(tzinfo=UTC) + dt.timedelta(days=1) if info.get("au")
+          else dt.datetime.max.replace(tzinfo=UTC))
+    return t0, t1
+
+
+def caler_sur_listing(sa, info, pdf=None):
+    """Recale les periodes lues dans le PDF du SUP sur les dates du listing SIA : periodes raccourcies si le listing
+    a avance la fin (ou recule le debut). Si le listing a prolonge le SUP lui-meme (dates extremes du PDF `pdf`
+    differentes du listing), les periodes de plusieurs jours qui commencent ou finissent avec le SUP sont etendues
+    (horaires du PDF reconduits : sa.prolonge = True) ; la periode propre a une zone, plus courte, ne l'est pas."""
+    lim = bornes_listing(info)
+    if not lim or not sa.regles or not any(r[0] for r in sa.regles):
+        return
+    du, au = lim[0].date(), (lim[1] - dt.timedelta(days=1)).date()
+    mn, mx = pdf or (None, None)
+    regles = []
+    for r in sa.regles:
+        d0, d1, h = r[0], r[1], list(r[5])
+        if d0:
+            if d0 == mn and d1 > d0 and du < d0:
+                d0, h[0], sa.prolonge = du, None, True
+            if d1 == mx and d1 > d0 and au > d1:
+                d1, h[1], sa.prolonge = au, None, True
+            if d0 < du:
+                d0, h[0] = du, None
+            if d1 > au:
+                d1, h[1] = au, None
+            if d0 > d1:
+                continue
+        regles.append((d0, d1) + r[2:5] + (tuple(h),) + r[6:])
+    sa.regles = regles
+
+
 class SupActivite:
     """mode : 'notam' (activable par NOTAM), 'horaires' (horaires fixes), 'verifier' (non interprete)."""
 
     def __init__(self, mode, regles=None, texte=""):
         self.mode, self.regles, self.texte = mode, regles or [], texte
+        self.prolonge = False
 
     def creneaux(self, day, pos=(46.5, 2.5)):
         """Intervalles UTC d'activite fixe le jour `day` (mode 'horaires'), ou d'activabilite (mode 'radio').
@@ -1955,6 +2010,35 @@ POUR_TOUS_RE = re.compile(r"CONTOURNEMENT\s+OBLIGATOIRE|COMPULSORY\s+(?:AREA\s+)
                           r"TOUS\s+(?:LES\s+)?A[EÉ]RONEFS")
 
 
+def sups_sans_trigger(notams, sups, sc, w0, w1):
+    """SUP en vigueur dans [w0, w1] d'apres le listing SIA mais cites par aucun trigger NOTAM valide dans le creneau
+    (trigger expire, jamais publie...) : un pseudo trigger NOTAM par SUP, pour que ses zones soient traitees comme
+    les autres. Seulement les SUP dont le PDF donne des zones tracees (pas les travaux d'aerodrome)."""
+    if not sc:
+        return []
+    cites = set()
+    for n in notams.values():
+        e = (n.get("itemE") or "").upper()
+        if not (n["qLine"]["code45"] == "TT" or "TRIGGER NOTAM" in e):
+            continue
+        cites.update(re.findall(r"SUP\s+(?:AIP\s+)?(?:AIRAC\s+)?(\d{3}/\d{2})", e))
+    out = []
+    for num, info in sorted(sups.items()):
+        lim = bornes_listing(info)
+        if num in cites or not lim or lim[1] <= w0 or lim[0] >= w1:
+            continue
+        if not any(z["pts"] for z in sc.zones(num)) or sc.est_itineraire(num):
+            continue
+        out.append({"id": f"SUP{num}", "_sans_notam": True, "series": "", "number": 0, "year": "",
+                    "qLine": {"code23": "RT", "code45": "TT", "lower": 0, "upper": 999, "fir": "LFFF"},
+                    "itemA": "LFFF", "coordinates": "", "radius": 0,
+                    "startValidity": f"{info['du']}T00:00:00Z", "endValidity": "PERM",
+                    "itemE": f"SUP AIP {num} en vigueur du {info['du']} au {info.get('au') or '?'} (listing SIA), "
+                             f"sans trigger NOTAM : {info.get('titre', '')}",
+                    "itemD": "", "itemF": "", "itemG": ""})
+    return out
+
+
 def drones_seulement(texte):
     e = re.sub(r"\s+", " ", (texte or "").upper())
     return bool(DRONES_SEULS_RE.search(e)) and not POUR_TOUS_RE.search(e)
@@ -1966,7 +2050,8 @@ def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFO
     sups, db, sc, sup_refs_seen = ctx["sups"], ctx["db"], ctx["sc"], ctx["refs"]
     prefixes = tuple(x.strip().upper() for x in codes.split(",") if x.strip())
     rows = []
-    for n in notams.values():
+    for n in list(notams.values()) + sups_sans_trigger(notams, sups, sc, w0, w1):
+        sans_notam = n.get("_sans_notam", False)
         q = n["qLine"]
         code = q["code23"] + q["code45"]
         if not q["code23"].startswith(prefixes):
@@ -1978,10 +2063,16 @@ def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFO
         b = dt.datetime.fromisoformat(n["startValidity"].replace("Z", "+00:00"))
         c_raw = n["endValidity"]
         c = dt.datetime.max.replace(tzinfo=UTC) if c_raw == "PERM" else dt.datetime.fromisoformat(c_raw.replace("Z", "+00:00"))
-        if c <= w0 or b >= w1:
-            continue
         e_up = (n.get("itemE") or "").upper()
         trig = q["code45"] == "TT" or "TRIGGER NOTAM" in e_up
+        if trig:
+            # Le trigger NOTAM ne fait qu'annoncer le SUP : sa validite est celle du listing SIA, qui fait foi
+            lim = bornes_listing(sups.get((re.findall(r"SUP\s+(?:AIP\s+)?(?:AIRAC\s+)?(\d{3}/\d{2})", e_up) or [""])[0]))
+            if lim:
+                b, c = lim
+                c_raw = "PERM" if c.year == dt.MAXYEAR else f"{c - dt.timedelta(minutes=1):%Y-%m-%dT%H:%M}"
+        if c <= w0 or b >= w1:
+            continue
         if trig:
             cat = CAT_SUP_VERIFIER
         elif q["code45"] in ("CA", "LW", "LP", "AW", "LT"):
@@ -2026,7 +2117,9 @@ def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFO
                     continue
                 if mode == "verifier" and NOTAM_ACTIVATION_RE.search(e_up):
                     mode = "notam"
-                pos = (parse_coord(qc[1], True), parse_coord(qc[2], False)) if qc else (46.5, 2.5)
+                pos = ((parse_coord(qc[1], True), parse_coord(qc[2], False)) if qc else
+                       (sum(p[0] for p in part["pts"]) / len(part["pts"]), sum(p[1] for p in part["pts"]) / len(part["pts"]))
+                       if part["pts"] else (46.5, 2.5))
                 hs = [(max(x, b, w0), min(y, c, w1)) for x, y in sa.creneaux(day, pos)] if sa and sa.regles else []
                 hs = [(x, y) for x, y in hs if y > x and y > q_start]
                 if mode == "horaires":
@@ -2044,6 +2137,11 @@ def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFO
                         act, motif = hs, motif + " (créneaux d'activabilité du SUP)"
                 else:
                     zcat, motif = CAT_SUP_VERIFIER, "Mode d'activation non interprété : lire le SUP"
+                if sa and sa.prolonge and sa.regles:
+                    motif = (motif + " ; " if motif else "") + ("dates prolongées par le listing SIA : horaires du PDF "
+                                                                "reconduits, à vérifier")
+                if sans_notam:
+                    motif = (motif + " ; " if motif else "") + "SUP en vigueur d'après le listing SIA (pas de trigger NOTAM)"
             # Informations pratiques du SUP (frequences, gestionnaire, telephones, penetration)
             inf = sc.infos(ref) if (sc and ref and ref in sups) else {}
             freqs = " / ".join(f"{a} {f}" for a, f in inf.get("freqs", []))
@@ -2068,7 +2166,7 @@ def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFO
                 "telephones": " / ".join(inf.get("tels", [])),
                 "penetration": inf.get("penetration", ""),
                 "pays": notam_country(n),
-                "notam": f"{n['series']}{n['number']:04d}/{n['year']}",
+                "notam": "" if sans_notam else f"{n['series']}{n['number']:04d}/{n['year']}",
                 "code": code,
                 # NFKC : ligatures des PDF (« ﬁ » -> « fi ») et espaces speciaux, mal affiches par les instruments
                 "nom": re.sub(r"\s+", " ", unicodedata.normalize("NFKC", name)).strip(),
@@ -2076,7 +2174,8 @@ def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFO
                                    re.sub(r"^0+(?=\d)", "", re.sub(r"(\d)\s+FT\b", r"\1FT", lo_.strip()))),
                 "plafond": re.sub(r"^FL\s*0*(\d+)", r"FL\1",
                                   re.sub(r"^0+(?=\d)", "", re.sub(r"(\d)\s+FT\b", r"\1FT", hi_.strip()))),
-                "validite": f"{n['startValidity'][:16]} -> {c_raw[:16]}",
+                "validite": (f"{b:%Y-%m-%dT%H:%M} -> {c_raw[:16]}" + (" (listing SIA)" if trig and lim else "")
+                             if trig else f"{n['startValidity'][:16]} -> {c_raw[:16]}"),
                 "item_d": (n.get("itemD") or "").replace("\n", " "),
                 "actif_ce_jour_utc": " ".join(f"{x:%H%M}-{y:%H%M}" for x, y in act),
                 "horaire_interprete": "oui" if (ok or part["hours"] is not None) else "NON - verifier item D",
@@ -2287,8 +2386,8 @@ def main():
                 # OpenAir extended (Naviter, comme planeur-net) : AC = classe OACI (UNC : non classe), AY = type
                 f.write(f"AC UNC\nAY {r['_class'] if r['_class'] in ('R', 'Q', 'P') else 'R'}\n")
                 # numero du SUP dans le nom : seule information affichee par XCSoar / XCTrack pour retrouver le SUP
-                sup = f" SUP {r['sup_aip']}" if r.get("sup_aip") else ""
-                f.write(f"AN {r['nom'][:45]} {r['actif_ce_jour_utc']}Z ({r['notam']}{sup})\n")
+                ref = " ".join(x for x in (r["notam"], f"SUP {r['sup_aip']}" if r.get("sup_aip") else "") if x)
+                f.write(f"AN {r['nom'][:45]} {r['actif_ce_jour_utc']}Z ({ref})\n")
                 fq = re.match(r"(.+) (\d{3}\.\d{1,3})", (r.get("frequences") or "").split(" / ")[0])
                 if fq:                                   # premiere frequence : champs OpenAir AF (frequence) et AG (indicatif)
                     f.write(f"AF {fq[2]}\nAG {fq[1]}\n")
