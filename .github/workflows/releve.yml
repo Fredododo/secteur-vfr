@@ -66,7 +66,8 @@ jobs:
           fi
           ls site
 
-      # Releve SOFIA, sauf pour un envoi qui ne modifie que la page (carte_template.html) : republication seule
+      # Releve SOFIA, sauf pour un envoi qui ne modifie que les pages (pages.py, carte_template.html, MODE_EMPLOI.md) :
+      # republication seule. pages.py ne contient que la generation des pages, pas le calcul des zones.
       - name: Nature du declenchement
         id: mode
         run: |
@@ -76,7 +77,7 @@ jobs:
             if git cat-file -e "$before^{commit}" 2>/dev/null; then
               changes=$(git diff --name-only "$before" "${{ github.sha }}")
               echo "Fichiers modifies :"; echo "$changes"
-              if ! echo "$changes" | grep -qE '\.py$|^zones_complements\.txt$|^requirements\.txt$|^\.github/workflows/'; then
+              if ! echo "$changes" | grep -v '^pages\.py$' | grep -qE '\.py$|^zones_complements\.txt$|^requirements\.txt$|^\.github/workflows/'; then
                 releve=false
               fi
             fi

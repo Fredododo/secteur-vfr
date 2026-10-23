@@ -15,7 +15,7 @@ Le relevé est fait par l'Action GitHub `.github/workflows/releve.yml`. Elle est
 - en secours par la programmation de GitHub à hh:37 (souvent retardée ou sautée) ;
 - à la main (onglet Actions → « Releve horaire » → Run workflow) ;
 - après un envoi de code : **nouveau relevé** si l'envoi modifie le calcul des zones (`*.py`,
-  `zones_complements.txt`, `requirements.txt`, l'Action), sinon (page `carte_template.html` ou `MODE_EMPLOI.md`)
+  `zones_complements.txt`, `requirements.txt`, l'Action), sinon (`pages.py`, `carte_template.html`, `MODE_EMPLOI.md`)
   **republication des pages** à partir du relevé déjà en ligne, sans requête SOFIA (`releve_france.py --republier`).
 
 Elle récupère les relevés déjà en ligne, lance `releve_france.py` (24 relevés conservés ; deux relevés d'une même
@@ -66,6 +66,13 @@ python zones_secteur.py --lat 49.0361 --lon 1.5394 --axe 221.3 --date 2026-10-21
 
 `--releve` seul prend `releves/latest.json` ; on peut aussi donner un fichier ou une URL.
 Vérifié le 20/10/2026 : résultats identiques au calcul direct pour Jeufosse et La Comté (21/10).
+
+## Code
+
+- `zones_secteur.py` : calcul des zones (NOTAM, SUP AIP, bases de zones, horaires) et carte d'un secteur ;
+- `releve_france.py` : relevé horaire de toute la France ;
+- `pages.py` : génération des pages publiées (carte, page autonome, mode d'emploi), sans effet sur le relevé ;
+- `carte_template.html` : la page interactive.
 
 ## Page interactive (`releves/carte.html`, `releves/index.html`)
 

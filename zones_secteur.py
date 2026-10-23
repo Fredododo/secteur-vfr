@@ -31,6 +31,8 @@ import uuid
 import requests
 from pyproj import Geod, Proj
 
+from pages import page_html
+
 SOFIA = "https://sofia-briefing.aviation-civile.gouv.fr"
 SUP_LIST = "https://www.sia.aviation-civile.gouv.fr/documents/supaip/aip/id/6"
 GEOD = Geod(ellps="WGS84")
@@ -2331,20 +2333,6 @@ def merge_slots(slots):
         else:
             out.append((a, b))
     return out
-
-
-def page_html(snap, preset=None, sites=None):
-    """Page interactive (carte_template.html) avec le releve integre et, en option, un secteur pre-regle et la
-    liste des sites FFVL (page autonome)."""
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "carte_template.html"), encoding="utf-8") as f:
-        tpl = f.read()
-    js = lambda o: json.dumps(o, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")  # noqa
-    page = tpl.replace("/*__RELEVE__*/null", js(snap))
-    if preset:
-        page = page.replace("/*__PRESET__*/null", js(preset))
-    if sites:
-        page = page.replace("/*__SITES__*/null", js(sites))
-    return page
 
 
 if __name__ == "__main__":
