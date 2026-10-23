@@ -1,3 +1,4 @@
 requests>=2.27
 pyproj>=3.6
 pypdf>=6.0
+markdown>=3.3

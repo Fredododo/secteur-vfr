@@ -11,10 +11,11 @@ on:
     - cron: "37 * * * *"
   workflow_dispatch:             # cron-job.org, ou bouton « Run workflow » dans l'onglet Actions
   # Envoi de code : nouveau releve si le calcul des zones change (scripts, complements, dependances, cette Action),
-  # sinon (page seulement) republication de la page avec le releve deja en ligne, sans interroger SOFIA.
+  # sinon (page ou mode d'emploi seulement) republication des pages avec le releve deja en ligne, sans interroger SOFIA.
   push:
     branches: [main]
-    paths: ["*.py", "carte_template.html", "zones_complements.txt", "requirements.txt", ".github/workflows/releve.yml"]
+    paths: ["*.py", "carte_template.html", "MODE_EMPLOI.md", "zones_complements.txt", "requirements.txt",
+            ".github/workflows/releve.yml"]
 
 permissions:
   contents: read

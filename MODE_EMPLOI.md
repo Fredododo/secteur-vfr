@@ -1,6 +1,7 @@
 # Secteur VFR — mode d'emploi
 
 **Page :** https://fredododo.github.io/secteur-vfr/
+
 Sans compte ni installation : la page fonctionne dans n'importe quel navigateur, sur PC comme sur téléphone.
 
 > ⚠️ **Outil d'aide à la préparation : il ne remplace pas le briefing officiel** (SOFIA, NOTAM, SUP AIP, carte AZBA).

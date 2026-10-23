@@ -4,7 +4,7 @@ Outil d'aide à la préparation : **ne remplace pas le briefing officiel**.
 
 ## En ligne
 
-Page interactive : **https://fredododo.github.io/secteur-vfr/** — mode d'emploi : [MODE_EMPLOI.md](MODE_EMPLOI.md) (saisie du sommet et de l'axe, carte, filtres,
+Page interactive : **https://fredododo.github.io/secteur-vfr/** — mode d'emploi : https://fredododo.github.io/secteur-vfr/mode_emploi.html (page générée à partir de [MODE_EMPLOI.md](MODE_EMPLOI.md) à chaque publication) (saisie du sommet et de l'axe, carte, filtres,
 export OpenAir), mise à jour toutes les heures.
 
 Le relevé est fait par l'Action GitHub `.github/workflows/releve.yml`. Elle est déclenchée :
@@ -15,8 +15,8 @@ Le relevé est fait par l'Action GitHub `.github/workflows/releve.yml`. Elle est
 - en secours par la programmation de GitHub à hh:37 (souvent retardée ou sautée) ;
 - à la main (onglet Actions → « Releve horaire » → Run workflow) ;
 - après un envoi de code : **nouveau relevé** si l'envoi modifie le calcul des zones (`*.py`,
-  `zones_complements.txt`, `requirements.txt`, l'Action), sinon (page seule, `carte_template.html`) **republication
-  de la page** à partir du relevé déjà en ligne, sans requête SOFIA (`releve_france.py --republier`).
+  `zones_complements.txt`, `requirements.txt`, l'Action), sinon (page `carte_template.html` ou `MODE_EMPLOI.md`)
+  **republication des pages** à partir du relevé déjà en ligne, sans requête SOFIA (`releve_france.py --republier`).
 
 Elle récupère les relevés déjà en ligne, lance `releve_france.py` (24 relevés conservés ; deux relevés d'une même
 heure se remplacent) et publie le dossier sur GitHub Pages. Un relevé en échec ou incomplet n'est pas publié : la
