@@ -1917,7 +1917,8 @@ def main():
                     f.write(f"* Activite reelle connue de : {r['frequences']}\n")
                 if r.get("telephones"):
                     f.write(f"* Telephone : {r['telephones']}\n")
-                f.write(f"AC {r['_class']}\n")
+                # OpenAir extended (Naviter, comme planeur-net) : AC = classe OACI (UNC : non classe), AY = type
+                f.write(f"AC UNC\nAY {r['_class'] if r['_class'] in ('R', 'Q', 'P') else 'R'}\n")
                 f.write(f"AN {r['nom'][:45]} {r['actif_ce_jour_utc']}Z ({r['notam']})\n")
                 fq = re.match(r"(.+) (\d{3}\.\d{1,3})", (r.get("frequences") or "").split(" / ")[0])
                 if fq:                                   # premiere frequence : champs OpenAir AF (frequence) et AG (indicatif)

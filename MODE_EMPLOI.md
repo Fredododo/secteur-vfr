@@ -63,8 +63,9 @@ Vos réglages sont gardés par votre navigateur d'une visite à l'autre.
 - **Zones affichées (après filtres)** : exactement ce que montre la carte.
 - **Toutes les zones du secteur** : tout, sans tenir compte des filtres.
 
-Le fichier `.txt` garde les cercles et arcs d'origine ; la première fréquence de la zone est reprise dans les champs
-`AF`/`AG`.
+Le fichier `.txt` est au format **OpenAir extended** (comme le fichier planeur-net de la FFVP) : classe `AC UNC`
+(espace non classé) et type `AY R` (réglementée), `AY Q` (dangereuse, zones W et D) ou `AY P` (interdite). Il garde
+les cercles et arcs d'origine ; la première fréquence de la zone est reprise dans les champs `AF`/`AG`.
 
 ## Bon à savoir
 

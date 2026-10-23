@@ -144,6 +144,10 @@ L'API interne de la carte AZBA n'est pas utilisée (accès protégé) : pour un 
 
 ## Géométrie OpenAir
 
+Format **OpenAir extended** (spécification Naviter, comme le fichier planeur-net de la FFVP) : `AC UNC`
+(classe OACI : non classé) puis `AY` pour le type (`R` réglementée, `Q` dangereuse, y compris les avertissements W,
+`P` interdite), au lieu de l'ancien `AC R` / `AC Q` / `AC P`.
+
 Les zones gardent leur forme publiée : cercles en `V X=` + `DC`, arcs des SUP AIP et de la base AIP en `V D=` / `V X=` + `DB` / `DA`,
 le secteur de recherche en `DA`. Les polygones `DP` ne servent que quand la source ne donne que des points.
 Vérifié le 20/10/2026 : 56 zones relues depuis l'OpenAir, écart < 300 m avec la géométrie de la carte.
