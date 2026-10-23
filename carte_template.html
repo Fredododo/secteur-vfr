@@ -172,6 +172,11 @@ body.collapsed #panel{display:none}
         <label class="f">Ouverture (°) <input id="ouv" type="number" min="1" max="360" step="1" value="30"></label>
         <label class="f">Rayon (km) <input id="ray" type="number" min="10" max="1000" step="10" value="400"></label>
       </div>
+      <div class="row">
+        <label class="f">Largeur au départ (km) <input id="larg" type="number" min="0" max="100" step="1" value="10"></label>
+      </div>
+      <div class="hint">Largeur au départ : demi-cercle de ce diamètre derrière le site, puis cône de l'ouverture choisie
+        (0 : cône qui part du site).</div>
       <div class="tools"><button type="button" class="btn" id="pickTarget">Viser un point sur la carte</button></div>
       <div class="hint" id="axeHint"></div>
     </fieldset>
@@ -245,18 +250,34 @@ function distM(la1, lo1, la2, lo2){
   const a=Math.sin((la2-la1)*D2R/2)**2+Math.cos(la1*D2R)*Math.cos(la2*D2R)*Math.sin((lo2-lo1)*D2R/2)**2;
   return 2*R*Math.asin(Math.min(1,Math.sqrt(a)));
 }
+// Forme du secteur. Largeur au depart nulle : cone dont la pointe est le site. Sinon « cornet » : demi-cercle de
+// diametre `larg` derriere le site, puis cone de l'ouverture choisie dont les cotes partent des extremites du diametre.
+// Le cone a alors son sommet virtuel recule de d = (larg/2)/tan(ouverture/2) ; le rayon reste mesure depuis le site.
+function origineCone(P){
+  const half=P.ouv/2, h=P.larg/2;
+  if(!(h>0)||half>=89) return {la:P.lat, lo:P.lon, d0:0, R:P.ray};
+  const d=h/Math.tan(half*D2R), [la,lo]=dest(P.lat,P.lon,P.axe+180,d);
+  return {la, lo, d0:d, R:P.ray+d};
+}
+function secteurPoly(P){
+  const half=P.ouv/2, o=origineCone(P), pts=[];
+  if(!o.d0){ pts.push([P.lat,P.lon]); for(let b=P.axe-half;b<=P.axe+half+1e-9;b+=1) pts.push(dest(P.lat,P.lon,b,P.ray)); return pts; }
+  for(let b=P.axe-half;b<=P.axe+half+1e-9;b+=1) pts.push(dest(o.la,o.lo,b,o.R));                  // arc lointain
+  for(let a=P.axe+90;a<=P.axe+270+1e-9;a+=5) pts.push(dest(P.lat,P.lon,a,P.larg/2));               // demi-cercle arriere
+  return pts;
+}
 // Partie du secteur hors de la zone relevee (reunion des cylindres SOFIA du releve) : les NOTAM n'y sont pas connus.
 // Pour chaque relevement, la zone relevee s'arrete a la premiere sortie des cylindres ; au-dela, le secteur est grise.
 function horsZone(P){
   const m=SNAP&&SNAP.meta, C=m&&m.cylindres; if(!C||!C.length) return null;
   const r=(m.rayon_nm||100)*NM, couvert=(la,lo)=>C.some(([a,b])=>distM(la,lo,a,b)<=r), pas=2000;
-  const fins=[], half=P.ouv/2; let manque=0, tout=0;
+  const fins=[], half=P.ouv/2, o=origineCone(P); let manque=0, tout=0;
   for(let b=P.axe-half;b<=P.axe+half+1e-9;b+=1){
-    let d=0; while(d<P.ray&&couvert(...dest(P.lat,P.lon,b,d+pas))) d+=pas;
-    d=Math.min(d,P.ray); fins.push([b,d]); manque+=P.ray**2-d**2; tout+=P.ray**2;
+    let d=o.d0; while(d<o.R&&couvert(...dest(o.la,o.lo,b,d+pas))) d+=pas;
+    d=Math.min(d,o.R); fins.push([b,d]); manque+=o.R**2-d**2; tout+=o.R**2-o.d0**2;
   }
   if(manque<=0) return null;
-  return {frac:manque/tout, poly:[...fins.map(([b,d])=>dest(P.lat,P.lon,b,d)), ...fins.slice().reverse().map(([b])=>dest(P.lat,P.lon,b,P.ray))]};
+  return {frac:manque/tout, poly:[...fins.map(([b,d])=>dest(o.la,o.lo,b,d)), ...fins.slice().reverse().map(([b])=>dest(o.la,o.lo,b,o.R))]};
 }
 function dest(lat, lon, brg, d){
   const p1=lat*D2R, l1=lon*D2R, b=brg*D2R, a=d/R;
@@ -464,8 +485,9 @@ function setPick(m){ pickMode=m; $("pickApex").classList.toggle("on",m==="apex")
 function params(){
   const lat=parseCoord($("lat").value,true), lon=parseCoord($("lon").value,false);
   const axe=parseFloat($("axe").value), ouv=parseFloat($("ouv").value), ray=parseFloat($("ray").value)*1000;
+  const larg=Math.max(0,parseFloat($("larg").value)||0)*1000;
   const jour=$("jour").value, plaf=PLAFOND_FL;
-  return {lat,lon,axe,ouv,ray,jour,plaf};
+  return {lat,lon,axe,ouv,ray,larg,jour,plaf};
 }
 function updateSunDefaults(force){
   const {lat,lon,jour}=params(); if(isNaN(lat)||isNaN(lon)||!jour) return;
@@ -484,7 +506,7 @@ function compute(){
   window._passe = w1<=now&&!F.passe;     // creneau entierement passe et creneaux termines masques : aucune zone
   const proj=projector(P.lat,P.lon), half=P.ouv/2;
   // Secteur : sommet + arc tous les 1 degre
-  const sect=[[P.lat,P.lon]]; for(let b=P.axe-half;b<=P.axe+half+1e-9;b+=1) sect.push(dest(P.lat,P.lon,b,P.ray));
+  const sect=secteurPoly(P);
   const sectXY=sect.map(([a,b])=>proj(a,b));
   // Zones
   const zones=[];
@@ -571,7 +593,7 @@ $("list").addEventListener("click",e=>{const b=e.target.closest(".z"); if(!b) re
 // Perimetre d'export : zones affichees (filtres de la carte) ou toutes les zones du secteur (plancher < FL115)
 function oaHeader(complet){ const {P,w0,w1}=result;
   return [`* Genere par la page Secteur VFR le ${new Date().toISOString().slice(0,16)}Z - releve SOFIA du ${SNAP.meta.genere}`,
-    `* Sommet ${oaPt(P.lat,P.lon)} axe ${P.axe} ouverture ${P.ouv} rayon ${P.ray/1000} km`,
+    `* Sommet ${oaPt(P.lat,P.lon)} axe ${P.axe} ouverture ${P.ouv} rayon ${P.ray/1000} km largeur au depart ${P.larg/1000} km`,
     `* Jour ${P.jour} creneau ${hm(w0)}-${hm(w1)} UTC`,
     complet ? `* Perimetre : toutes les zones du secteur (sans filtre d'affichage), plancher < FL${P.plaf}`
       : `* Perimetre : zones affichees - plancher < FL${F.alt?Math.min(P.plaf,F.altFt/100):P.plaf}`
@@ -631,7 +653,7 @@ $("dlComplet").onclick=()=>result&&save(`zones_${tag()}_complet.txt`,oaZones(tru
 $("dlFrance").onclick=()=>SNAP&&save(`zones_france_${SNAP.meta.genere.slice(0,13).replace(/[-:]/g,"")}Z.txt`,oaReleve());
 
 /* ---------- Formulaire ---------- */
-const KEYS=["lat","lon","axe","ouv","ray","site"];
+const KEYS=["lat","lon","axe","ouv","ray","larg","site"];
 function saveParams(){ try{ localStorage.setItem("secteurVFR",JSON.stringify(Object.fromEntries(KEYS.map(k=>[k,$(k).value])))); }catch(e){} }
 function loadParams(){ try{ const o=JSON.parse(localStorage.getItem("secteurVFR")||"null"); if(o) for(const k of KEYS) if(o[k]!=null) $(k).value=o[k]; }catch(e){} }
 /* ---------- Choix du site : recherche dans la liste FFVL ---------- */
@@ -705,7 +727,7 @@ $("jour").onchange=()=>{ updateSunDefaults(true); compute(); };
 // Chaque champ modifie (en quittant le champ ou par Entree) recalcule aussitot le secteur : pas de bouton « Calculer »
 ["lat","lon"].forEach(k=>$(k).addEventListener("change",()=>{ $("site").value=""; majClear(); window._target=null; updateSunDefaults(true); compute(); }));
 $("axe").addEventListener("change",()=>{ window._target=null; $("axeHint").textContent=""; compute(); });
-["ouv","ray","deb","fin"].forEach(k=>$(k).addEventListener("change",()=>compute()));
+["ouv","ray","larg","deb","fin"].forEach(k=>$(k).addEventListener("change",()=>compute()));
 $("form").addEventListener("submit",e=>{ e.preventDefault(); compute(); });
 $("form").addEventListener("keydown",e=>{ if(e.key==="Enter"&&e.target.tagName==="INPUT"&&e.target.id!=="site"){ e.preventDefault(); compute(); } });
 
@@ -787,6 +809,7 @@ function initSnapshot(s){
   if(PRESET){
     // Carte produite par zones_secteur.py : secteur et creneau du calcul, zones du secteur seulement
     for(const k of ["lat","lon","axe","ouv","ray"]) $(k).value=PRESET[k];
+    $("larg").value=PRESET.larg??0;        // zones_secteur.py calcule un cone qui part du site
     $("site").value=""; majClear();
     if(!days.includes(PRESET.jour)) $("jour").insertAdjacentHTML("beforeend",`<option value="${PRESET.jour}">${PRESET.jour.split("-").reverse().join("/")}</option>`);
     $("jour").value=PRESET.jour;

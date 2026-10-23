@@ -83,7 +83,9 @@ Générées à chaque relevé à partir de `carte_template.html` :
 La page a quatre onglets :
 - **Secteur** : sommet (site cherché par nom, commune ou code postal dans la liste officielle FFVL,
   coordonnées décimales ou DMS, ou clic sur la carte), axe (degrés ou « viser un point »),
-  ouverture, rayon, jour (dans la fenêtre du relevé), créneau (SR−30 / SS+30 au sommet par défaut) ;
+  ouverture, rayon, largeur au départ (10 km : demi-cercle derrière le site puis cône dont le sommet virtuel est
+  reculé de (largeur/2)/tan(ouverture/2) ; 0 : cône depuis le site), jour (dans la fenêtre du relevé), créneau
+  (SR−30 / SS+30 au sommet par défaut) ;
 - **Affichage** : fond de carte, filtres (plancher ≥ FL, catégories, zones W et D, pays), « Afficher aussi les créneaux
   terminés » (décochée par défaut : seules les activités en cours ou à venir sont montrées ; cochée, les créneaux passés
   depuis l'heure du relevé sont gardés et marqués « terminé ») ;

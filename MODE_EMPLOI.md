@@ -30,7 +30,10 @@ suivantes. Seules les zones dont le plancher est **sous le FL115** sont relevée
 - **Axe** : direction du vol, en degrés vrais. Quand vous choisissez un site, la page propose l'axe **sous le vent**,
   à l'opposé de ses orientations de décollage (site O-NO → 113°). Modifiez-le à la main ou cliquez sur
   **« Viser un point sur la carte »** puis sur la destination.
-- **Ouverture** (30° par défaut) et **rayon** (400 km par défaut).
+- **Ouverture** (30° par défaut) et **rayon** (400 km par défaut, mesuré depuis le site le long de l'axe).
+- **Largeur au départ** (10 km par défaut) : le secteur part d'un **demi-cercle de ce diamètre derrière le site**,
+  puis s'ouvre selon l'ouverture choisie. Toutes les zones à moins de 5 km du décollage, devant comme derrière, sont
+  donc prises en compte. Avec 0, le secteur est un cône dont la pointe est le site.
 - **Jour** et **créneau**, en **UTC**. Par défaut : du lever du soleil −30 min au coucher +30 min. Une fois ce
   créneau passé, la page propose le lendemain.
 - Le secteur est **recalculé automatiquement** dès qu'un champ est modifié (en quittant le champ ou avec Entrée) ;
