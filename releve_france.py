@@ -183,6 +183,7 @@ def main():
             "rayon_nm": Q_RADIUS_NM,                 # rayon des cylindres : zone relevee = leur reunion
             "bases": ctx["db"].infos,                # editions des bases de zones permanentes
             "sup_liste": ctx["sups"].info,           # lecture de la liste des SUP AIP du SIA (copie si echec)
+            "nb_loisirs": len(ctx.get("loisirs", ())),  # NOTAM d'activites sportives et recreatives non affiches
             "erreurs": erreurs,
             "sources": ["SOFIA-Briefing (SIA/DGAC)", "SUP AIP (SIA)", "planeur-net (AIP France)"],
             "avertissement": "Outil d'aide : ne remplace pas le briefing officiel.",

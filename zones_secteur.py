@@ -2052,6 +2052,34 @@ POUR_TOUS_RE = re.compile(r"CONTOURNEMENT\s+OBLIGATOIRE|COMPULSORY\s+(?:AREA\s+)
                           r"TOUS\s+(?:LES\s+)?A[EÉ]RONEFS")
 
 
+# Activites sportives et recreatives (AIP ENR 5.5) : parachutage (WP), voltige (WB), vol a voile, parapente et
+# treuillage (WG), aeromodelisme (WU dont le texte parle de modeles reduits ; les autres WU, vols de drones, restent).
+# L'outil n'affiche pas les activites permanentes de l'ENR 5.5 : il n'affiche pas non plus les NOTAM qui les creent,
+# les modifient, les suspendent ou annoncent une activite ponctuelle du meme type.
+CODES_LOISIRS = ("WP", "WB", "WG")
+AEROMODELISME_RE = re.compile(r"MODEL\s+(?:FLYING|ACFT|AIRCRAFT)|AEROMODEL")
+
+
+# Garde-fou : un NOTAM d'activite qui cree ou active une zone interdite au VFR (ZRT, ZIT, zone reglementee ou
+# interdite, contournement obligatoire...) n'est jamais ecarte. (Une zone permanente seulement citee, « EN DEHORS
+# ACTIVITE LF R 589 », ne compte pas : elle a ses propres NOTAM.)
+INTERDIT_VFR_RE = re.compile(r"\bZ[RI]T\b|\bZDT\b|RESTRICTED\s+AREA|PROHIBITED\s+AREA|AREA\s+PROHIBITED|"
+                             r"ZONE\s+(?:REGLEMENTEE|INTERDITE)|CONTOURNEMENT\s+OBLIGATOIRE|COMPULSORY\s+(?:AREA\s+)?AVOIDANCE|"
+                             r"(?:FLIGHTS?|OVERFLIGHT|PENETRATION|ACCESS)\s+(?:IS\s+)?(?:PROHIBITED|FORBIDDEN|NOT\s+(?:ALLOWED|PERMITTED))|"
+                             r"\bINTERDI[TC]")
+
+
+def loisir(n):
+    code = n["qLine"]["code23"]
+    if code not in CODES_LOISIRS and code != "WU":
+        return False
+    e = unicodedata.normalize("NFKD", " ".join([n.get("itemE") or "", ((n.get("multiLanguage") or {}).get("itemE") or "")]))
+    e = e.encode("ascii", "ignore").decode().upper()
+    if INTERDIT_VFR_RE.search(e):
+        return False
+    return code in CODES_LOISIRS or bool(AEROMODELISME_RE.search(e))
+
+
 def sups_sans_trigger(notams, sups, sc, w0, w1):
     """SUP en vigueur dans [w0, w1] d'apres le listing SIA mais cites par aucun trigger NOTAM valide dans le creneau
     (trigger expire, jamais publie...) : un pseudo trigger NOTAM par SUP, pour que ses zones soient traitees comme
@@ -2097,6 +2125,9 @@ def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFO
         q = n["qLine"]
         code = q["code23"] + q["code45"]
         if not q["code23"].startswith(prefixes):
+            continue
+        if loisir(n):                            # activites sportives et recreatives (ENR 5.5) : non affichees
+            ctx.setdefault("loisirs", set()).add(n["id"])
             continue
         if q["lower"] >= plafond_fl:
             continue

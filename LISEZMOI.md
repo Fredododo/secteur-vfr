@@ -129,6 +129,17 @@ Fermée, la zone du jour ne revient pas avant le lendemain (`localStorage`). Cod
 
 ## Catégories des zones
 
+**NOTAM écartés : activités sportives et récréatives.** Les NOTAM de code Q `WP` (parachutage), `WB` (voltige),
+`WG` (vol à voile, parapente, treuillage) et `WU` dont le texte parle d'aéromodélisme (« MODEL FLYING »,
+« AEROMODELISME ») ne sont pas retenus, quelle que soit leur nature (création, modification ou suspension d'une
+activité de l'AIP ENR 5.5, activité ponctuelle) et quel que soit le pays : l'outil n'affiche pas les activités
+permanentes de l'ENR 5.5, il n'affiche donc pas non plus leurs NOTAM. Les autres `WU` (vols de drones) restent.
+Seuls des codes `W` (avertissements) sont concernés : les zones `R` (ZRT, ZIT, zones réglementées, dangereuses,
+RTBA) ne le sont jamais. Garde-fou : un NOTAM d'activité dont le texte crée ou active une zone interdite au VFR
+(« ZRT », « ZIT », « LF-R… », « zone réglementée », « contournement obligatoire », « prohibited », « interdit »…)
+est gardé.
+Le nombre de NOTAM écartés est dans `meta.nb_loisirs` et en bas de la page.
+
 | Catégorie | Règle |
 |---|---|
 | active | NOTAM d'activation (`…CA`, `…LW`…), ou zone d'un SUP AIP à horaires fixes dans le créneau (« active selon les horaires du SUP »). Sur la page et dans les exports, les avertissements (code Q `W…` : voltige, parachutage, drones…) et les zones dangereuses (code Q `RD`) actifs forment la case « Zones W et D » (VFR non interdit) ; les autres zones actives forment « Zones actives (interdites VFR) » |
