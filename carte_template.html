@@ -184,7 +184,7 @@ body.collapsed #panel{display:none}
       <div class="hint">Zones retenues : plancher sous le FL115 (limite fixe du relevé).</div>
     </fieldset>
 
-    <button class="btn primary" type="submit">Calculer le secteur</button>
+    <div class="hint">Le secteur est recalculé dès qu'un champ est modifié ; les zones sont dans l'onglet Zones.</div>
   </form>
   </section>
 
@@ -697,9 +697,12 @@ if(!SITES_FFVL&&!EMBED) fetch("sites.json").then(r=>r.ok?r.json():null).then(d=>
 $("pickApex").onclick=()=>setPick(pickMode==="apex"?null:"apex");
 $("pickTarget").onclick=()=>setPick(pickMode==="target"?null:"target");
 $("jour").onchange=()=>{ updateSunDefaults(true); compute(); };
-["lat","lon"].forEach(k=>$(k).addEventListener("change",()=>{ $("site").value=""; majClear(); window._target=null; updateSunDefaults(true); }));
-$("axe").addEventListener("change",()=>{ window._target=null; $("axeHint").textContent=""; });
-$("form").addEventListener("submit",e=>{ e.preventDefault(); compute(); setTab("zones"); });
+// Chaque champ modifie (en quittant le champ ou par Entree) recalcule aussitot le secteur : pas de bouton « Calculer »
+["lat","lon"].forEach(k=>$(k).addEventListener("change",()=>{ $("site").value=""; majClear(); window._target=null; updateSunDefaults(true); compute(); }));
+$("axe").addEventListener("change",()=>{ window._target=null; $("axeHint").textContent=""; compute(); });
+["ouv","ray","deb","fin"].forEach(k=>$(k).addEventListener("change",()=>compute()));
+$("form").addEventListener("submit",e=>{ e.preventDefault(); compute(); });
+$("form").addEventListener("keydown",e=>{ if(e.key==="Enter"&&e.target.tagName==="INPUT"&&e.target.id!=="site"){ e.preventDefault(); compute(); } });
 
 /* ---------- Onglets ---------- */
 const TABS=["secteur","affichage","zones","export"];

@@ -33,7 +33,8 @@ suivantes. Seules les zones dont le plancher est **sous le FL115** sont relevée
 - **Ouverture** (30° par défaut) et **rayon** (400 km par défaut).
 - **Jour** et **créneau**, en **UTC**. Par défaut : du lever du soleil −30 min au coucher +30 min. Une fois ce
   créneau passé, la page propose le lendemain.
-- Cliquez sur **« Calculer le secteur »**.
+- Le secteur est **recalculé automatiquement** dès qu'un champ est modifié (en quittant le champ ou avec Entrée) ;
+  les zones trouvées sont dans l'onglet **Zones**.
 
 ## 2. Onglet « Affichage » : filtrer
 
