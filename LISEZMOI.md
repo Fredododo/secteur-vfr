@@ -214,6 +214,14 @@ de la page et écrite dans le journal du relevé ; une édition de plus de 60 jo
 signalée « édition ancienne » dans la source des zones concernées. Au 23/10/2026, la LVZC n'a rien publié depuis
 son édition du 31/03/2026.
 
+## SUP AIP recopiés à la main
+
+Quand la lecture du PDF d'un SUP ne donne aucune zone (tableau sur plusieurs colonnes, mélangées à l'extraction du
+texte), ses zones peuvent être recopiées dans `zones_complements.txt`, avec une ligne `* SUP AIP : NNN/AA` dans le
+commentaire qui les précède et le même nom (`AN`) que dans le SUP. Elles ne servent que pour ce SUP, et seulement si
+le PDF ne donne rien ; la source affichée est « SUP AIP NNN/AA (recopie manuelle) ». Exemple : SUP 042/26, ZRT
+Olonne A, B et C (trigger NOTAM R0750/26). À retirer quand le SUP n'est plus en vigueur.
+
 ## Zones allemandes
 
 Base **DAeC** (Deutscher Aero Club, commission vol à voile) : fichier OpenAir de l'espace aérien allemand, publié

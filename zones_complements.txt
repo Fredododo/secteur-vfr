@@ -43,3 +43,49 @@ V D=+
 V X=51:09:19 N 002:43:40 E
 DB 51:10:15 N 002:39:59 E, 51:10:55 N 002:46:45 E
 DP 51:10:08 N 002:46:31 E
+
+* ============================================================
+* Zones de SUP AIP recopiees a la main, quand le PDF ne se lit pas automatiquement (tableau sur plusieurs
+* colonnes...). Ligne « * SUP AIP : NNN/AA » obligatoire : la zone n'est utilisee que pour ce SUP, et seulement
+* si la lecture du PDF ne donne aucune zone. Nom (AN) identique a celui du SUP.
+* ============================================================
+
+* ZRT OLONNE A
+* SUP AIP : 042/26
+* Source : SUP AIP 042/26 du 12 MAR 2026, tableau « Limites laterales et verticales »
+AC R
+AN ZRT OLONNE A
+AL FL115
+AH FL255
+V X=46:28:37 N 001:43:22 W
+DC 3
+
+* ZRT OLONNE B
+* SUP AIP : 042/26
+* Source : SUP AIP 042/26 du 12 MAR 2026, tableau « Limites laterales et verticales »
+AC R
+AN ZRT OLONNE B
+AL FL115
+AH FL255
+DP 46:30:01 N 001:25:12 W
+DP 46:41:05 N 001:31:18 W
+V D=-
+V X=46:28:37 N 001:43:22 W
+DB 46:41:05 N 001:31:18 W, 46:13:37 N 001:43:12 W
+DP 46:30:00 N 001:38:00 W
+DP 46:30:01 N 001:25:12 W
+
+* ZRT OLONNE C
+* SUP AIP : 042/26
+* Source : SUP AIP 042/26 du 12 MAR 2026, tableau « Limites laterales et verticales »
+AC R
+AN ZRT OLONNE C
+AL 5000FT AMSL
+AH FL115
+DP 46:30:00 N 001:32:35 W
+DP 46:37:18 N 001:50:33 W
+V D=-
+V X=46:28:37 N 001:43:22 W
+DB 46:37:18 N 001:50:33 W, 46:18:42 N 001:41:37 W
+DP 46:30:00 N 001:38:00 W
+DP 46:30:00 N 001:32:35 W

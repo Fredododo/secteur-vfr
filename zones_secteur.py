@@ -469,6 +469,8 @@ class SupCache:
                 print("  (pypdf absent : geometrie des SUP AIP non lue - pip install pypdf)")
             except Exception as e:
                 print(f"  (SUP {num} : lecture impossible : {e})")
+        if not res:                     # PDF illisible (tableau sur plusieurs colonnes...) : zones recopiees a la main
+            res = complements_sup().get(num, [])
         self.mem[num] = res
         return res
 
@@ -1032,6 +1034,35 @@ class AirspaceDB(dict):
     oaip = {}           # Suisse, Italie, Espagne (openAIP) : {pays: base}
     comp = {}
     infos = []          # edition et date de telechargement de chaque base (publiees dans le releve)
+
+
+_COMPLEMENTS_SUP = None
+
+
+def complements_sup():
+    """Zones de SUP AIP recopiees a la main dans zones_complements.txt (ligne « * SUP AIP : NNN/AA » dans le
+    commentaire qui precede la zone) : {numero du SUP: [zones au format de parse_sup_text]}."""
+    global _COMPLEMENTS_SUP
+    if _COMPLEMENTS_SUP is None:
+        _COMPLEMENTS_SUP = {}
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zones_complements.txt")
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                lignes = f.read().splitlines()
+            recs = {r["an"]: r for r in parse_openair(path)}
+            for i, l in enumerate(lignes):
+                if not l.startswith("AN "):
+                    continue
+                j = i - 1                   # commentaires juste au-dessus de la zone (avant la ligne AC)
+                while j >= 0 and (lignes[j].startswith("*") or lignes[j].startswith("AC ")):
+                    j -= 1
+                bloc = "\n".join(lignes[j + 1:i])
+                m = re.search(r"\*\s*SUP AIP\s*:\s*(\d{3}/\d{2})", bloc)
+                r = recs.get(l[3:].strip())
+                if m and r:
+                    _COMPLEMENTS_SUP.setdefault(m.group(1), []).append(
+                        {"nom": r["an"], "pts": r["pts"], "al": r["al"], "ah": r["ah"], "note": "saisie manuelle"})
+    return _COMPLEMENTS_SUP
 
 
 def load_complements():
@@ -1736,7 +1767,8 @@ def notam_parts(n, db, day, sc=None, sup_refs_seen=()):
         named_sup = [(r, zz) for r, zz in cands if _zone_in_text(zz["nom"], efold)]
         sel = named_sup if (named_sup and not trig) else (cands if refs else [])
         if sel:
-            return [{"pts": zz["pts"], "label": zz["nom"], "src": f"SUP AIP {r} (PDF, {zz['note']})",
+            return [{"pts": zz["pts"], "label": zz["nom"],
+                     "src": f"SUP AIP {r} (" + ("recopie manuelle" if zz["note"] == "saisie manuelle" else f"PDF, {zz['note']}") + ")",
                      "al": zz["al"], "ah": zz["ah"], "hours": None, "alt_sup": True} for r, zz in sel]
 
     # 3) Zone permanente citee (LF-R602, R139A, TSA...) : seulement pour un NOTAM de restriction (code Q en R..).
