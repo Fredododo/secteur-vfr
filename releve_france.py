@@ -117,7 +117,17 @@ def main():
     ap.add_argument("--pause", type=float, default=2.0, help="Pause entre deux requetes SOFIA, en s (2)")
     ap.add_argument("--accepter-incomplet", action="store_true",
                     help="Ecrire le releve meme si des cylindres ont echoue (deconseille)")
+    ap.add_argument("--republier", action="store_true",
+                    help="Sans interroger SOFIA : regenere les pages (index.html, carte.html, sites.json) a partir du "
+                         "latest.json deja present dans le dossier (modification de la page seulement)")
     a = ap.parse_args()
+
+    if a.republier:
+        with open(os.path.join(a.dossier, "latest.json"), encoding="utf-8") as f:
+            snap = json.load(f)
+        ecrire_pages(snap, a.dossier)
+        print(f"Pages regenerees a partir du releve {snap['meta']['genere']} (aucune requete SOFIA)")
+        return
 
     t0 = time.time()
     now = dt.datetime.now(UTC)

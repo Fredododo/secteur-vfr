@@ -13,7 +13,10 @@ Le relevé est fait par l'Action GitHub `.github/workflows/releve.yml`. Elle est
   jeton GitHub *fine-grained* limité à ce dépôt, permission **Actions : Read and write** seulement (jeton valable
   un an : le renouveler sur GitHub puis le remplacer dans l'en-tête `Authorization` de la tâche cron-job.org) ;
 - en secours par la programmation de GitHub à hh:37 (souvent retardée ou sautée) ;
-- à la main (onglet Actions → « Releve horaire » → Run workflow) et après chaque modification du code.
+- à la main (onglet Actions → « Releve horaire » → Run workflow) ;
+- après un envoi de code : **nouveau relevé** si l'envoi modifie le calcul des zones (`*.py`,
+  `zones_complements.txt`, `requirements.txt`, l'Action), sinon (page seule, `carte_template.html`) **republication
+  de la page** à partir du relevé déjà en ligne, sans requête SOFIA (`releve_france.py --republier`).
 
 Elle récupère les relevés déjà en ligne, lance `releve_france.py` (24 relevés conservés ; deux relevés d'une même
 heure se remplacent) et publie le dossier sur GitHub Pages. Un relevé en échec ou incomplet n'est pas publié : la

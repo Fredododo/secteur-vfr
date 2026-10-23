@@ -10,6 +10,8 @@ on:
   schedule:
     - cron: "37 * * * *"
   workflow_dispatch:             # cron-job.org, ou bouton « Run workflow » dans l'onglet Actions
+  # Envoi de code : nouveau releve si le calcul des zones change (scripts, complements, dependances, cette Action),
+  # sinon (page seulement) republication de la page avec le releve deja en ligne, sans interroger SOFIA.
   push:
     branches: [main]
     paths: ["*.py", "carte_template.html", "zones_complements.txt", "requirements.txt", ".github/workflows/releve.yml"]
@@ -32,6 +34,8 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0         # historique complet : comparaison avec le commit precedent l'envoi
 
       - uses: actions/setup-python@v5
         with:
@@ -51,17 +55,41 @@ jobs:
         run: |
           mkdir -p site
           base="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}"
-          if curl -fsSL "$base/index.json" -o /tmp/index.json; then
-            for f in $(jq -r '.releves[]' /tmp/index.json); do
+          if curl -fsSL "$base/index.json" -o site/index.json; then
+            for f in $(jq -r '.releves[]' site/index.json); do
               curl -fsSL "$base/$f" -o "site/$f" || echo "absent : $f"
             done
+            curl -fsSL "$base/latest.json" -o site/latest.json || rm -f site/latest.json
           else
             echo "Pas encore de site en ligne : premier releve."
           fi
           ls site
 
+      # Releve SOFIA, sauf pour un envoi qui ne modifie que la page (carte_template.html) : republication seule
+      - name: Nature du declenchement
+        id: mode
+        run: |
+          releve=true
+          if [ "${{ github.event_name }}" = "push" ] && [ -f site/latest.json ]; then
+            before="${{ github.event.before }}"
+            if git cat-file -e "$before^{commit}" 2>/dev/null; then
+              changes=$(git diff --name-only "$before" "${{ github.sha }}")
+              echo "Fichiers modifies :"; echo "$changes"
+              if ! echo "$changes" | grep -qE '\.py$|^zones_complements\.txt$|^requirements\.txt$|^\.github/workflows/'; then
+                releve=false
+              fi
+            fi
+          fi
+          echo "releve=$releve" >> "$GITHUB_OUTPUT"
+          echo "Nouveau releve SOFIA : $releve"
+
       - name: Releve France
+        if: steps.mode.outputs.releve == 'true'
         run: python releve_france.py --dossier site
+
+      - name: Republication de la page (sans releve)
+        if: steps.mode.outputs.releve != 'true'
+        run: python releve_france.py --dossier site --republier
 
       - uses: actions/upload-pages-artifact@v3
         with:
