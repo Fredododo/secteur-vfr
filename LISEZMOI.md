@@ -157,6 +157,11 @@ trigger NOTAM, qui ne fait qu'annoncer le SUP. Le listing est relu à chaque rel
   de trigger NOTAM) ». Seuls les SUP dont le PDF donne des zones tracées sont concernés (pas les travaux
   d'aérodrome).
 
+Les dates corrigées par le SIA (en rouge sur son site, balise `<strong class="alert-data">`) sont repérées :
+colonnes `sup_du`, `sup_au` et `sup_corrige` (« du », « au » ou « du,au »), mention en orange dans la fiche de la
+zone (« Date de fin du SUP … corrigée par le SIA : valide du … au … »), commentaire « SUP valide du … au … (listing
+SIA, dates corrigees par le SIA) » dans l'OpenAir.
+
 La liste est relue sur le site du SIA à chaque relevé (toutes les heures) et copiée dans `cache/sup_liste.json`. Si
 le site ne répond pas, ou si sa page ne donne pas une vraie liste (moins de 10 SUP), la dernière liste lue est
 reprise : le relevé l'indique (`meta.sup_liste` : date de lecture, `copie`), la page affiche « Liste des SUP AIP

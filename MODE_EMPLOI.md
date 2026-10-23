@@ -108,6 +108,7 @@ affiche toutes les zones en permanence — vérifiez alors l'horaire dans le nom
 - Pour les **SUP AIP**, ce sont les dates du **listing des SUP du SIA** qui font foi (elles peuvent être corrigées
   en rouge, plus courtes ou plus longues que dans le PDF du SUP). La page les applique ; un SUP en vigueur sans
   trigger NOTAM apparaît aussi (« SUP en vigueur d'après le listing SIA »). Quand le listing a prolongé un SUP, la
-  fiche indique « horaires du PDF reconduits, à vérifier ». La liste est relue à chaque relevé ; le bas de la page
+  fiche indique « horaires du PDF reconduits, à vérifier ». Une date corrigée par le SIA est signalée en orange
+  dans la fiche de la zone (« Date de fin du SUP … corrigée par le SIA »). La liste est relue à chaque relevé ; le bas de la page
   donne l'heure de lecture. Si le site du SIA n'a pas répondu, la page l'indique sous l'heure du relevé
   (« Liste des SUP AIP non mise à jour ») : les dates des SUP sont alors celles de la dernière lecture.

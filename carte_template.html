@@ -352,6 +352,13 @@ function motifHtml(p){
   const m=esc(p.motif||"");
   return p.sup_pdf ? m.replace(/lire le SUP/i,`<a href="${esc(p.sup_pdf)}" target="_blank" rel="noopener">lire le SUP ${esc(p.sup_aip||"")}</a>`) : m;
 }
+// Dates du listing des SUP corrigees par le SIA (en rouge sur son site) : elles font foi sur celles du PDF
+const frDate=d=>d?d.split("-").reverse().join("/"):"";
+function supCorrige(p){
+  const c=p.sup_corrige.split(","), q=c.length>1?"Dates de début et de fin":c[0]==="du"?"Date de début":"Date de fin";
+  return `${q} du SUP ${esc(p.sup_aip)} corrigée${c.length>1?"s":""} par le SIA : valide du ${frDate(p.sup_du)} au ${frDate(p.sup_au)||"?"}`
+    +` (le listing fait foi sur le PDF)`;
+}
 function popupHtml(z){
   const d1=dmy(z.slots[0][0]), d2=dmy(z.slots[z.slots.length-1][1]);
   const p=z.p;
@@ -361,15 +368,17 @@ function popupHtml(z){
   ${p.categorie===C_NA||p.categorie===C_IN?`<div class="sl" style="color:var(--muted)">Non active sur ce créneau</div>`:
   `<div>${p.categorie==="active"?"Active":"Activité possible"} du ${d1} au ${d2}</div>
   <div class="sl">${z.slots.map(([a,b])=>`${hm(a)} - ${hm(b)}`).join("<br>")} <small>UTC</small></div>`}
+  ${p.sup_corrige?`<div style="color:var(--warn)">${supCorrige(p)}</div>`:""}
   ${p.horaire_interprete&&p.horaire_interprete!=="oui"?`<div style="color:var(--warn)">Horaire non interprété : vérifier l'item D</div>`:""}
   ${p.categorie!=="active"?`<div class="cat">${esc(CAT_LABEL[p.categorie]||p.categorie)}${p.motif?` : ${motifHtml(p)}`:""}</div>`:""}
   ${p.activation==="horaires SUP"?`<div class="cat" style="color:var(--muted)">Active selon les horaires du SUP AIP ${esc(p.sup_aip||"")}</div>`:""}
   ${p.frequences?`<div class="info">Activité réelle : <b>${esc(p.frequences)}</b></div>`:""}
   ${p.telephones?`<div class="info">Tél. : <span class="tel">${esc(p.telephones)}</span>${p.gestionnaire?` <span class="muted">(${esc(p.gestionnaire.slice(0,70))})</span>`:""}</div>`:""}
   ${p.penetration?`<div class="info muted">Pénétration : ${esc(p.penetration)}</div>`:""}
-  <details><summary>Détails</summary>${p.notam?`NOTAM ${esc(p.notam)} (Q${esc(p.code)})`:"Sans NOTAM : SUP en vigueur d'après le listing SIA"} ·${z.dist} km au ${pad(z.brg,3)}°<br>Géométrie : ${esc(p.geometrie)}<br>
+  <details><summary>Détails</summary>${p.notam?`NOTAM ${esc(p.notam)} (Q${esc(p.code)})`:"Sans NOTAM : SUP en vigueur d'après le listing SIA"} · ${z.dist} km au ${pad(z.brg,3)}°<br>Géométrie : ${esc(p.geometrie)}<br>
   ${p.item_d?`Item D : ${esc(p.item_d)}<br>`:""}
-  ${p.sup_aip?`SUP AIP ${esc(p.sup_aip)} : ${esc(p.sup_titre)}${p.sup_pdf?` (<a href="${esc(p.sup_pdf)}" target="_blank" rel="noopener">PDF</a>)`:""}<br>`:""}
+  ${p.sup_aip?`SUP AIP ${esc(p.sup_aip)} : ${esc(p.sup_titre)}${p.sup_pdf?` (<a href="${esc(p.sup_pdf)}" target="_blank" rel="noopener">PDF</a>)`:""}<br>`
+    +(p.sup_du?`Valide du ${frDate(p.sup_du)} au ${frDate(p.sup_au)||"?"} (listing SIA)<br>`:""):""}
   <pre>${esc(p.texte)}</pre></details></div>`;
 }
 
@@ -631,6 +640,7 @@ function oaBloc(p, heures){
   {
     out.push(`* ${p.notam||"sans NOTAM (listing SIA)"} Q${p.code} -${p.categorie} - geometrie : ${p.geometrie}`);
     if(p.sup_aip) out.push(`* SUP AIP ${p.sup_aip} ${String(p.sup_titre).slice(0,90)}`);
+    if(p.sup_du) out.push(`* SUP valide du ${p.sup_du} au ${p.sup_au||"?"} (listing SIA${p.sup_corrige?", dates corrigees par le SIA":""})`);
     if(p.sup_pdf) out.push(`* SUP AIP ${p.sup_aip} (PDF officiel) : ${p.sup_pdf}`);
     if(p.motif) out.push(`* ${p.motif}`);
     if(p.frequences) out.push(`* Activite reelle connue de : ${p.frequences}`);

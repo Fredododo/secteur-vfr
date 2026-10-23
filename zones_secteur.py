@@ -320,10 +320,14 @@ def _lire_sup_list():
         m = re.search(r'href="([^"]+)"[^>]*>\s*<b>(\d{3})/(20\d{2})</b>\s*<span>(.*?)<i', row, re.S)
         if not m:
             continue
-        dates = re.findall(r"<strong[^>]*>(\d{4}-\d{2}-\d{2})</strong>", row)
+        # date corrigee par le SIA (affichee en rouge) : <strong class="alert-data">
+        dates = re.findall(r"<strong([^>]*)>(\d{4}-\d{2}-\d{2})</strong>", row)
+        corr = [d for (c, _), d in zip(dates, ("du", "au")) if "alert-data" in c]
+        dates = [d for _, d in dates]
         sups[f"{m[2]}/{m[3][2:]}"] = {
-            "titre": html.unescape(re.sub(r"\s+", " ", m[4])).strip(),
-            "du": dates[0] if dates else "", "au": dates[1] if len(dates) > 1 else "", "pdf": m[1]}
+            "titre": re.sub(r"<[^>]+>", "", html.unescape(re.sub(r"\s+", " ", m[4]))).strip(),
+            "du": dates[0] if dates else "", "au": dates[1] if len(dates) > 1 else "", "pdf": m[1],
+            "corrige": corr}
     return sups
 
 
@@ -2219,6 +2223,10 @@ def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFO
                 "horaire_interprete": "oui" if (ok or part["hours"] is not None) else "NON - verifier item D",
                 "sup_aip": ref,
                 "sup_titre": sups.get(ref, {}).get("titre", ""),
+                "sup_du": sups.get(ref, {}).get("du", ""),
+                "sup_au": sups.get(ref, {}).get("au", ""),
+                # dates du listing corrigees par le SIA (en rouge) : "du", "au" ou "du,au"
+                "sup_corrige": ",".join(sups.get(ref, {}).get("corrige", [])),
                 "sup_pdf": sups.get(ref, {}).get("pdf", ""),
                 "geometrie": part["src"],
                 "dist_km": "",
@@ -2279,6 +2287,7 @@ def zones_from_releve(snap, day, w0, w1, now, plafond_fl=PLAFOND_FL):
         ring = ft["geometry"]["coordinates"][0][:-1]
         r = {k: p.get(k, "") for k in ("categorie", "pays", "notam", "code", "nom", "plancher", "plafond", "validite",
                                        "item_d", "horaire_interprete", "sup_aip", "sup_titre", "sup_pdf",
+                                       "sup_du", "sup_au", "sup_corrige",
                                        "geometrie", "activation", "motif", "frequences", "gestionnaire",
                                        "telephones", "penetration")}
         r.update({
@@ -2411,6 +2420,9 @@ def main():
                 f.write(f"\n* {r['notam']} Q{r['code']} - {r['categorie']} - geometrie : {r['geometrie']}\n")
                 if r["sup_aip"]:
                     f.write(f"* SUP AIP {r['sup_aip']} {r['sup_titre'][:90]}\n")
+                    if r.get("sup_du"):
+                        f.write(f"* SUP valide du {r['sup_du']} au {r['sup_au'] or '?'} (listing SIA"
+                                + (", dates corrigees par le SIA" if r.get("sup_corrige") else "") + ")\n")
                     if r.get("sup_pdf"):
                         f.write(f"* SUP AIP {r['sup_aip']} (PDF officiel) : {r['sup_pdf']}\n")
                 if r["item_d"]:
