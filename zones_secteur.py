@@ -832,8 +832,9 @@ def sup_activite(text, zone, noms):
 
 AIRSPACE_URL = "https://planeur-net.github.io/airspace/france.txt"
 LVZC_INDEX = "https://www.lvzc.be/index.php/luchtruim/luchtruimbestanden"
-# Identifiants de zones : LF-R45A, R139A, TSA22, EBR67, EBD26, HTA04A, LFA01, TRA23, ELTSA03, CBA1...
-ZONE_ID_RE = re.compile(r"\b(?:LF-?|EU-?|EB-?|EL-?)?(R|D|P|TSA|CBA|HTA|LFA|TRA)\s?-?\s?(\d{1,3})\s?([A-Z]{1,2}\d?(?:\.\d)?)?(?![\w.])")
+DAEC_INDEX = "https://www.daec.de/fachbereiche/luftraum-flugsicherheit-betrieb/luftraumdaten/"
+# Identifiants de zones : LF-R45A, R139A, TSA22, EBR67, EBD26, HTA04A, LFA01, TRA23, ELTSA03, CBA1, EDR134, EDD19B...
+ZONE_ID_RE = re.compile(r"\b(?:LF-?|EU-?|EB-?|EL-?|ED-?)?(R|D|P|TSA|CBA|HTA|LFA|TRA)\s?-?\s?(\d{1,3})\s?([A-Z]{1,2}\d?(?:\.\d)?)?(?![\w.])")
 OA_COORD_RE = re.compile(r"(\d+):(\d+):(\d+(?:\.\d+)?)\s*([NS])\s*,?\s*(\d+):(\d+):(\d+(?:\.\d+)?)\s*([EW])")
 
 
@@ -924,14 +925,16 @@ def load_airspace_db(cache_dir):
         for key in zone_keys(rec["an"]):
             db.setdefault(key, rec)
     db.be = load_lvzc(cache_dir)
+    db.de = load_daec(cache_dir)
     db.comp = load_complements()
     return db
 
 
 class AirspaceDB(dict):
-    """Base France (planeur-net) ; .be = base Belgique / Luxembourg (LVZC) ;
+    """Base France (planeur-net) ; .be = base Belgique / Luxembourg (LVZC) ; .de = base Allemagne (DAeC) ;
     .comp = complements officiels saisis a la main (zones_complements.txt), prioritaires."""
     be = {}
+    de = {}
     comp = {}
 
 
@@ -991,21 +994,65 @@ def load_lvzc(cache_dir):
         entete = f.read(400)
     m = re.search(r"LAST UPDATED\s+([^\n*]+)", entete)
     label = f"base LVZC non officielle ({m.group(1).strip().lower() if m else 'date inconnue'})"
-    be = {}
+    return _base_par_identifiant(path, label)
+
+
+def _base_par_identifiant(path, label):
+    """Zones d'un fichier OpenAir indexees par identifiant (TSA25C, EDR134...). Les parties d'une meme zone (meme
+    identifiant exact, ex. TSA25C BEL / FRA) sont regroupees dans rec["autres"] ; une cle generique (HTA10)
+    designe la premiere zone seulement, sans fusion."""
+    base = {}
     exacts = {}
     for rec in parse_openair(path):
         rec["source"] = label
         cles = zone_keys(rec["an"])
         if not cles:
             continue
-        # Parties d'une meme zone (meme identifiant exact, ex. TSA25C BEL / FRA) : regroupees
         if cles[0] in exacts:
             exacts[cles[0]].setdefault("autres", []).append(rec)
             continue
         exacts[cles[0]] = rec
         for key in cles:
-            be.setdefault(key, rec)           # cle generique (HTA10) : premiere zone seulement, pas de fusion
-    return be
+            base.setdefault(key, rec)
+    return base
+
+
+def load_daec(cache_dir):
+    """Espace aerien Allemagne en OpenAir (DAeC, Deutscher Aero Club, fichier de la commission vol a voile publie
+    gratuitement, NON OFFICIEL) : zones ED-R (dont les TRA, EDR2xx) et ED-D. Derniere edition, cache de 7 jours."""
+    path = os.path.join(cache_dir, "allemagne_daec.txt")
+    fresh = os.path.exists(path) and (dt.datetime.now().timestamp() - os.path.getmtime(path)) < 7 * 86400
+    if not fresh:
+        try:
+            s = requests.Session()
+            s.headers["User-Agent"] = "Mozilla/5.0 (zones_secteur.py)"
+            idx = s.get(DAEC_INDEX, timeout=60).text
+            lien = re.search(r'href="([^"]*Airspace_Germany[^"]*\.txt)"', idx)
+            if not lien:
+                raise RuntimeError("fichier Airspace_Germany introuvable")
+            r = s.get(requests.compat.urljoin(DAEC_INDEX, lien.group(1)), timeout=120)
+            r.raise_for_status()
+            if "AC " not in r.text[:20000]:
+                raise RuntimeError("contenu inattendu")
+            with open(path + ".tmp", "w", encoding="utf-8") as f:
+                f.write(r.content.decode("utf-8", "replace"))
+            os.replace(path + ".tmp", path)
+        except Exception as e:
+            if not os.path.exists(path):
+                print(f"  (base Allemagne DAeC indisponible : {e})")
+                return {}
+    with open(path, encoding="utf-8", errors="replace") as f:
+        entete = f.read(1500)
+    m = re.search(r"effective from\s+([^\n*]+)", entete, re.I)
+    base = _base_par_identifiant(path, f"base DAeC non officielle ({m.group(1).strip() if m else 'date inconnue'})")
+    # Noms DAeC suivis de l'horaire de l'AIP (« EDR134 Wildflecken MON-FRI+ », « … H24 », « … (2.-3.10.) ») :
+    # retire, l'horaire qui compte est celui du NOTAM
+    horaire = re.compile(r"\s+(?:(?:MON|TUE|WED|THU|FRI|SAT|SUN)[-A-Z+]*|H24|HX|NOTAM|\([^)]*\))\s*$")
+    for rec in {id(r): r for r in base.values()}.values():
+        for zz in [rec] + rec.get("autres", []):
+            while horaire.search(zz["an"]):
+                zz["an"] = horaire.sub("", zz["an"])
+    return base
 
 
 def parse_openair(path):
@@ -1474,8 +1521,10 @@ def notam_parts(n, db, day, sc=None, sup_refs_seen=()):
     named = []
     if db and restriction:
         # NOTAM belge ou luxembourgeois : base LVZC d'abord (meme numero possible en France : R67, TSA22...)
-        be = getattr(db, "be", {}) or {}
-        bases = [be, db] if notam_country(n) in ("Belgique", "Luxembourg") else [db, be]
+        # NOTAM allemand : base DAeC seule (EDR95 n'est pas la R95 francaise)
+        be, de = getattr(db, "be", {}) or {}, getattr(db, "de", {}) or {}
+        pays = notam_country(n)
+        bases = [be, db] if pays in ("Belgique", "Luxembourg") else [de] if pays == "Allemagne" else [db, be]
         # complements officiels du meme pays que le NOTAM d'abord
         bases = [(getattr(db, "comp", {}) or {}).get(notam_country(n), {})] + bases
         for base in bases:

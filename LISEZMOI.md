@@ -181,6 +181,16 @@ Chaque zone porte aussi `* Pays : …` : elle n'est reprise que pour un NOTAM du
 Contenu actuel (Belgique, AIP valide à partir du 01/10/2026) : TSA26A ARDENNES 01 (ENR 5.2, FL95-UNL) et
 EBR17D LOMBARDSIJDE SECTOR DELTA (ENR 5.1, SFC-500 ft AMSL, polygone + arc de 2,5 NM, bord sud sur la plage).
 
+## Zones allemandes
+
+Base **DAeC** (Deutscher Aero Club, commission vol à voile) : fichier OpenAir de l'espace aérien allemand, publié
+gratuitement sur https://www.daec.de/fachbereiche/luftraum-flugsicherheit-betrieb/luftraumdaten/ (lien de la
+dernière édition lu sur la page, cache 7 jours `cache/allemagne_daec.txt`), **non officiel**. Zones ED-R (dont les
+TRA, numérotées EDR2xx) et ED-D, indexées par identifiant (`EDR134`, `EDR137B`, `EDD19B`…), exactement comme les
+citent les NOTAM allemands (« RESTRICTED AREA EDR112A (SENNE A) … ACT »). Pour un NOTAM allemand, seule cette base
+est consultée (EDR95 n'est pas la R95 française) ; l'horaire AIP accolé au nom DAeC (« MON-FRI+ », « H24 ») est
+retiré, celui du NOTAM fait foi.
+
 ## Sites de vol libre (FFVL)
 
 La liste des sites vient du jeu de données officiel « Terrains de pratique de la FFVL » publié chaque nuit sur

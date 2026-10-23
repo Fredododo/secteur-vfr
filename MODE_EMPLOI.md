@@ -79,6 +79,8 @@ affiche toutes les zones en permanence — vérifiez alors l'horaire dans le nom
   de zone n'y veut rien dire.
 - L'**âge du relevé** est indiqué en haut (« il y a 20 min »). Au-delà de 2 h, la mise à jour a eu un incident.
 - Tous les horaires sont en **UTC** : heure française = UTC + 1 h en hiver, UTC + 2 h en été.
-- Les **zones belges** viennent d'une base non officielle (LVZC) complétée par l'AIP belge ; c'est indiqué dans la
-  fiche de chaque zone.
+- Les **zones belges et luxembourgeoises** viennent d'une base non officielle (LVZC) complétée par l'AIP belge, les
+  **zones allemandes** (ED-R, TRA, ED-D) de la base du DAeC, non officielle elle aussi ; c'est indiqué dans la fiche
+  de chaque zone. Ailleurs à l'étranger, une zone citée sans coordonnées est tracée avec le cercle du NOTAM
+  (« approx. », pointillé).
 - Une zone désactivée **avant l'heure du relevé** n'y figure plus, même avec « créneaux terminés ».
