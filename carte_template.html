@@ -56,6 +56,9 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 .btn.primary{background:var(--magenta);border-color:var(--magenta);color:#fff;font-weight:600;padding:8px 12px}
 .btn.primary:hover{filter:brightness(1.08)}
 .tools{display:flex;flex-wrap:wrap;gap:6px}
+.egg{max-width:300px;background:var(--panel);color:var(--ink);border:2px solid #d81b60;border-radius:6px;padding:8px 30px 8px 10px;font-size:12.5px;line-height:1.35;position:relative;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.egg b{color:#d81b60} .egg small{color:var(--muted)}
+.egg button{position:absolute;top:4px;right:4px;border:0;background:none;color:var(--muted);font-size:15px;cursor:pointer}
 .sitebox{position:relative;display:block}
 .sitebox input{padding-right:30px}
 .siteclear{position:absolute;right:2px;top:50%;transform:translateY(-50%);width:26px;height:26px;border:0;background:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;border-radius:4px}
@@ -674,7 +677,9 @@ function chooseSite(s){
   showSites(false); updateSunDefaults(true); compute();
 }
 const majClear=()=>{ $("siteClear").hidden=!$("site").value; };
-$("site").addEventListener("input",()=>{ majClear(); siteRes=searchSites($("site").value); siteSel=siteRes.length?0:-1; showSites(!!$("site").value.trim()); });
+$("site").addEventListener("input",()=>{ const mot=norm($("site").value).trim();
+  if(mot==="cupidon"||mot==="poisson"){ $("site").value=""; majClear(); showSites(false); oeufBasculer(mot==="cupidon"?"coeur":"poisson"); return; }
+  majClear(); siteRes=searchSites($("site").value); siteSel=siteRes.length?0:-1; showSites(!!$("site").value.trim()); });
 // Au focus, le texte est selectionne : la frappe remplace le site precedent
 let siteFocusClic=false;
 $("site").addEventListener("focus",()=>{ siteFocusClic=true; setTimeout(()=>$("site").select(),0); });
@@ -720,6 +725,46 @@ document.querySelector(".tabs").addEventListener("keydown",e=>{
   e.preventDefault(); setTab(TABS[(j+TABS.length)%TABS.length],true); });
 try{ setTab(localStorage.getItem("secteurVFR.tab")||"secteur"); }catch(e){ setTab("secteur"); }
 
+/* ---------- Clins d'oeil (zones FICTIVES, purement visuelles) ----------
+   Coeur : mot « cupidon » dans le champ Site, et tout le 14 fevrier. Poisson : mot « poisson », et tout le 1er avril.
+   Couche a part : jamais dans la liste des zones, les compteurs, les filtres ni les exports OpenAir. */
+const OEUFS={
+  coeur:{nom:"ZRT CŒUR DE FRANCE — CUPIDON ACT (FICTIF)", c:[46.6,2.4],
+    fiche:`<b>ZRT Cœur de France</b> 💘 <small>(zone fictive)</small><br>Statut : Zone <b>Romantique</b> Temporaire, activable par simple regard.<br>
+      Gestionnaire : Cupidon (bureau des flèches, nuage n° 9).<br>Pénétration : autorisée aux amoureux, bouquet de fleurs recommandé ;
+      contournement obligatoire pour les cœurs de pierre.<br>Services rendus : information de vol, alerte et câlins.<br>
+      Dangers : papillons dans le ventre, thermiques romantiques. Du sol au septième ciel.`,
+    // courbe du coeur (x = 16 sin³t, y = 13 cos t - 5 cos 2t - 2 cos 3t - cos 4t), ~860 km de large
+    pt:t=>[16*Math.sin(t)**3*27000, (13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t)+2.5)*27000]},
+  poisson:{nom:"ZRT POISSON D'AVRIL (FICTIF)", c:[46.4,2.6],
+    fiche:`<b>ZRT Poisson d'avril</b> 🐟 <small>(zone fictive)</small><br>Statut : zone de blagues temporaire, active le 1<sup>er</sup> avril.<br>
+      Gestionnaire : le farceur de service (bureau des canulars).<br>Pénétration : libre, à condition de ne pas mordre à l'hameçon.<br>
+      Services rendus : fous rires et alerte au poisson dans le dos.<br>Dangers : poissons volants, bancs de sardines en thermique.`,
+    // courbe du poisson (x = cos t - sin²t/√2, y = cos t sin t), ~800 km de long
+    pt:t=>[(Math.cos(t)-Math.sin(t)**2/Math.SQRT2)*400000, Math.cos(t)*Math.sin(t)*400000]},
+};
+let oeufCouche=null, oeufBandeau=null, oeufActif=null;
+function oeufMasquer(){ oeufCouche?.remove(); oeufBandeau?.remove(); oeufCouche=oeufBandeau=null; oeufActif=null; }
+function oeufMontrer(k){
+  oeufMasquer(); const o=OEUFS[k], [la0,lo0]=o.c, ll=[];
+  for(let i=0;i<=120;i++){ const [x,y]=o.pt(2*Math.PI*i/120); ll.push([la0+y/111320, lo0+x/(111320*Math.cos(la0*D2R))]); }
+  oeufCouche=L.polygon(ll,{color:"#d81b60",weight:2.5,dashArray:"8 6",fillColor:"#ff4d88",fillOpacity:.12,interactive:false})
+    .bindTooltip(o.nom,{permanent:true,direction:"center",className:""}).addTo(map);
+  oeufCouche.bringToBack();
+  const C=L.Control.extend({onAdd:()=>{ const d=L.DomUtil.create("div","egg");
+    d.innerHTML=o.fiche+`<button type="button" title="Fermer" aria-label="Fermer">✕</button>`;
+    L.DomEvent.disableClickPropagation(d); d.querySelector("button").onclick=()=>{ oeufMasquer();
+      try{ localStorage.setItem("secteurVFR.oeuf",new Date().toISOString().slice(0,10)+k); }catch(e){} };
+    return d; }});
+  oeufBandeau=new C({position:"topright"}).addTo(map); oeufActif=k;
+  map.invalidateSize(); map.fitBounds(oeufCouche.getBounds(),{padding:[30,30]});
+}
+function oeufBasculer(k){ if(oeufActif===k) oeufMasquer(); else oeufMontrer(k); }
+function oeufDuJour(){
+  const d=new Date(), md=(d.getMonth()+1)*100+d.getDate(), k=md===214?"coeur":md===401?"poisson":null;
+  let vu=null; try{ vu=localStorage.getItem("secteurVFR.oeuf"); }catch(e){}
+  if(k&&vu!==d.toISOString().slice(0,10)+k) oeufMontrer(k);      // une fois ferme, ne revient pas le meme jour
+}
 function initSnapshot(s){
   // Editions des bases de zones permanentes utilisees par le releve (« ancienne » : plus de 2 mois)
   const dfr=d=>d?d.split("-").reverse().join("/"):"";
@@ -747,9 +792,9 @@ function initSnapshot(s){
     $("jour").value=PRESET.jour;
     updateSunDefaults(true); $("deb").value=PRESET.deb; $("fin").value=PRESET.fin;
     $("snap").innerHTML+=`<br><b>Carte calculée pour ce secteur</b> : changer le sommet ou l'axe n'ajoute pas d'autres zones.`;
-    compute(); setTab("zones"); return;
+    compute(); setTab("zones"); oeufDuJour(); return;
   }
-  updateSunDefaults(true); compute();
+  updateSunDefaults(true); compute(); oeufDuJour();
 }
 $("opts").addEventListener("change",onOpt);
 $("opts").addEventListener("input",e=>{ if(e.target.dataset.f==="altv") onOpt(e); });

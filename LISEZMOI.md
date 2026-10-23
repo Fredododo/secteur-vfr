@@ -97,6 +97,14 @@ La **zone relevée** (réunion des cylindres, enregistrée dans `meta.cylindres`
 secteur : la partie du secteur qui en sort est **grisée** sur la carte, avec le pourcentage concerné, car les NOTAM n'y
 sont pas connus (une absence de zone n'y signifie rien).
 
+## Clins d'œil
+
+Deux zones **fictives**, purement visuelles (couche à part : jamais dans la liste des zones, les compteurs, les
+filtres ni les exports OpenAir), en pointillé rose avec une fiche humoristique qu'on ferme d'un clic :
+- **ZRT Cœur de France** : en tapant « cupidon » dans le champ Site, et automatiquement le 14 février ;
+- **ZRT Poisson d'avril** : en tapant « poisson », et automatiquement le 1er avril.
+Fermée, la zone du jour ne revient pas avant le lendemain (`localStorage`). Code : `OEUFS` dans `carte_template.html`.
+
 ## Sorties (`resultats/`)
 
 - `zones_<date>.txt` — OpenAir des zones **actives interdites au VFR** (activées par NOTAM ou horaires SUP)
