@@ -836,8 +836,12 @@ DAEC_INDEX = "https://www.daec.de/fachbereiche/luftraum-flugsicherheit-betrieb/l
 # LVNL (prestataire de navigation aerienne neerlandais) : couches officielles de son geoportail, licence CC BY 4.0
 LVNL_SERVICE = "https://services-eu1.arcgis.com/OtUwzhpKSdeXgRIB/arcgis/rest/services/Airspaces_data/FeatureServer"
 LVNL_COUCHES = {3: "TSA", 5: "TRA", 17: "Danger area", 18: "Restricted area", 19: "Prohibited area"}
-# Identifiants de zones : LF-R45A, R139A, TSA22, EBR67, EBD26, HTA04A, LFA01, TRA23, ELTSA03, CBA1, EDR134, EDD19B, EHTSA55, EHR64...
-ZONE_ID_RE = re.compile(r"\b(?:LF-?|EU-?|EB-?|EL-?|ED-?|EH-?)?(R|D|P|TSA|CBA|HTA|LFA|TRA)\s?-?\s?(\d{1,3})\s?([A-Z]{1,2}\d?(?:\.\d)?)?(?![\w.])")
+# Suisse, Italie, Espagne : donnees openAIP (communautaires, CC BY-NC 4.0) converties en OpenAir par AirspaceConverter
+OPENAIP_URL = "https://alus.it/AirspaceConverter/openAIP/{}_asp.txt"
+OPENAIP_PAYS = {"Suisse": "ch", "Italie": "it", "Espagne": "es"}
+OPENAIP_NOMS = {}       # {code pays: {nom normalise: zone}} : zones citees par leur nom
+# Identifiants de zones : LF-R45A, R139A, TSA22, EBR67, EBD26, HTA04A, LFA01, TRA23, ELTSA03, CBA1, EDR134, EDD19B, EHTSA55, EHR64, LSR10, LED50, LETSA31, LI TSA113, LI-D313...
+ZONE_ID_RE = re.compile(r"\b(?:LF-?|EU-?|EB-?|EL-?|ED-?|EH-?|LS-?|LE-?|LI[-\s]?)?(R|D|P|TSA|CBA|HTA|LFA|TRA)\s?-?\s?(\d{1,3})\s?([A-Z]{1,2}\d?(?:\.\d)?)?(?![\w.])")
 OA_COORD_RE = re.compile(r"(\d+):(\d+):(\d+(?:\.\d+)?)\s*([NS])\s*,?\s*(\d+):(\d+):(\d+(?:\.\d+)?)\s*([EW])")
 
 
@@ -898,6 +902,9 @@ def _date_texte(t):
     m = re.search(r"(\d{4})-(\d{2})-(\d{2})", t or "")
     if m:
         return dt.date(int(m[1]), int(m[2]), int(m[3]))
+    m = re.search(r"\b(\d{2})-(\d{2})-(\d{4})\b", t or "")
+    if m:
+        return dt.date(int(m[3]), int(m[2]), int(m[1]))
     m = re.search(r"(\d{1,2})(?:ST|ND|RD|TH)?\s+([A-Z]+)\s+(\d{4})", (t or "").upper())
     if m and m[2] in MOIS_EN:
         return dt.date(int(m[3]), MOIS_EN[m[2]], int(m[1]))
@@ -993,15 +1000,18 @@ def load_airspace_db(cache_dir):
     db.be = load_lvzc(cache_dir)
     db.de = load_daec(cache_dir)
     db.nl = load_lvnl(cache_dir)
+    db.oaip = {pays: load_openaip(cache_dir, code) for pays, code in OPENAIP_PAYS.items()}
     db.comp = load_complements()
     db.infos = [fr, _info_base("Belgique, Luxembourg (LVZC)", os.path.join(cache_dir, "belgique_lvzc.txt"),
                                r"LAST UPDATED\s+([^\n*]+)"),
                 _info_base("Allemagne (DAeC)", os.path.join(cache_dir, "allemagne_daec.txt"),
                            r"effective from\s+([^\n*]+)"),
                 _info_base("Pays-Bas (LVNL)", os.path.join(cache_dir, "paysbas_lvnl.json"),
-                           r'"edition":\s*"([^"]+)"')]
+                           r'"edition":\s*"([^"]+)"')] + [
+                _info_base(f"{pays} (openAIP)", os.path.join(cache_dir, f"openaip_{code}.txt"), r"\*DATE:\s*(\S+)")
+                for pays, code in OPENAIP_PAYS.items()]
     # Edition de plus de 2 mois : signalee dans la source de chaque zone tiree de cette base
-    for base, info in ((db, db.infos[0]), (db.be, db.infos[1]), (db.de, db.infos[2]), (db.nl, db.infos[3])):
+    for base, info in zip([db, db.be, db.de, db.nl] + [db.oaip[p] for p in OPENAIP_PAYS], db.infos):
         if info.get("ancienne"):
             for rec in {id(r): r for r in base.values()}.values():
                 for zz in [rec] + rec.get("autres", []):
@@ -1017,6 +1027,7 @@ class AirspaceDB(dict):
     be = {}
     de = {}
     nl = {}
+    oaip = {}           # Suisse, Italie, Espagne (openAIP) : {pays: base}
     comp = {}
     infos = []          # edition et date de telechargement de chaque base (publiees dans le releve)
 
@@ -1081,13 +1092,13 @@ def load_lvzc(cache_dir):
     return _base_par_identifiant(path, label)
 
 
-def _base_par_identifiant(path, label):
+def _base_par_identifiant(path, label, recs=None):
     """Zones d'un fichier OpenAir indexees par identifiant (TSA25C, EDR134...). Les parties d'une meme zone (meme
     identifiant exact, ex. TSA25C BEL / FRA) sont regroupees dans rec["autres"] ; une cle generique (HTA10)
     designe la premiere zone seulement, sans fusion."""
     base = {}
     exacts = {}
-    for rec in parse_openair(path):
+    for rec in (recs if recs is not None else parse_openair(path)):
         rec["source"] = label
         cles = zone_keys(rec["an"])
         if not cles:
@@ -1221,6 +1232,47 @@ def load_lvnl(cache_dir):
     return base
 
 
+def load_openaip(cache_dir, code):
+    """Espace aerien d'un pays (ch, it, es) : donnees openAIP converties en OpenAir par AirspaceConverter (alus.it),
+    communautaires et NON OFFICIELLES (licence CC BY-NC 4.0). Indexees par identifiant (LSR10, LED50, LETSA31,
+    LI TSA113...). Cache de 7 jours (openaip_<code>.txt)."""
+    path = os.path.join(cache_dir, f"openaip_{code}.txt")
+    if _a_recharger(path):
+        try:
+            r = requests.get(OPENAIP_URL.format(code), timeout=120, headers={"User-Agent": "Mozilla/5.0 (zones_secteur.py)"})
+            r.raise_for_status()
+            if "AC " not in r.text[:20000]:
+                raise RuntimeError("contenu inattendu")
+            with open(path + ".tmp", "w", encoding="utf-8") as f:
+                f.write(r.content.decode("utf-8", "replace"))
+            os.replace(path + ".tmp", path)
+            _marquer(path)
+        except Exception as e:
+            if not os.path.exists(path):
+                print(f"  (base openAIP {code} indisponible : {e})")
+                return {}
+    with open(path, encoding="utf-8", errors="replace") as f:
+        m = re.search(r"\*DATE:\s*(\S+)", f.read(2000))
+    d = _date_texte(m.group(1)) if m else None
+    label = f"base openAIP non officielle ({d.isoformat() if d else 'date inconnue'})"
+    if d and (dt.date.today() - d).days > EDITION_ANCIENNE_JOURS:
+        label += " - edition ancienne, verifier l'AIP"
+    recs = parse_openair(path)
+    # zones sans identifiant (zones de tir italiennes « CLOU NEF (FIRINGAREA) ») : index par nom
+    OPENAIP_NOMS[code] = {_fold(rec["an"]): rec for rec in recs}
+    return _base_par_identifiant(path, label, recs)
+
+
+def _zone_tir_italienne(e, base):
+    """« MIL FIRING AREA /LAGO OMODEO-SW NUORO/ » : zone « LAGO OMODEO (FIRINGAREA) » de la base openAIP italienne."""
+    m = re.search(r"FIRING\s+AREA\s*/\s*([A-Z' ]+?)\s*(?:-[^/]*)?/", e or "")
+    if not m or not base:
+        return []
+    cle = _fold(m.group(1) + " (FIRINGAREA)")
+    z = OPENAIP_NOMS.get("it", {}).get(cle)
+    return [(cle, z, m.start())] if z else []
+
+
 def parse_openair(path):
     """Lit un fichier OpenAir : [{ac, an, al, ah, pts (Ring densifie, avec .oa = lignes d'origine)}]."""
     recs = []
@@ -1279,9 +1331,14 @@ def parse_openair(path):
     return recs
 
 
+def _normaliser_ids(text):
+    """Variantes d'ecriture des identifiants : TSA espagnole « LETS31 » dans les NOTAM, « LETSA31 » dans la base."""
+    return re.sub(r"\bLETS\s?(\d)", r"LETSA\1", (text or "").upper())
+
+
 def zone_keys(text):
     keys = []
-    for m in ZONE_ID_RE.finditer(text.upper()):
+    for m in ZONE_ID_RE.finditer(_normaliser_ids(text)):
         k = f"{m[1]}{int(m[2])}{m[3] or ''}"
         keys.append(k)
         if m[3]:
@@ -1292,7 +1349,7 @@ def zone_keys(text):
 def named_zones_in_text(text, db):
     """Zones permanentes citees dans le texte et presentes dans la base."""
     found = []
-    for m in ZONE_ID_RE.finditer(text.upper()):
+    for m in ZONE_ID_RE.finditer(_normaliser_ids(text)):
         k = f"{m[1]}{int(m[2])}{m[3] or ''}"
         z = db.get(k) or (None if m[3] else None)
         if z and k not in [f[0] for f in found]:
@@ -1690,14 +1747,17 @@ def notam_parts(n, db, day, sc=None, sup_refs_seen=()):
         # NOTAM allemand : base DAeC seule (EDR95 n'est pas la R95 francaise)
         be, de, nl = (getattr(db, k, {}) or {} for k in ("be", "de", "nl"))
         pays = notam_country(n)
+        oaip = getattr(db, "oaip", {}) or {}
         bases = ([be, db] if pays in ("Belgique", "Luxembourg") else [de] if pays == "Allemagne"
-                 else [nl] if pays == "Pays-Bas" else [db, be])
+                 else [nl] if pays == "Pays-Bas" else [oaip.get(pays, {})] if pays in OPENAIP_PAYS else [db, be])
         # complements officiels du meme pays que le NOTAM d'abord
         bases = [(getattr(db, "comp", {}) or {}).get(notam_country(n), {})] + bases
         for base in bases:
             named = named_zones_in_text(e, base) if base else []
             if named:
                 break
+        if not named and pays == "Italie":
+            named = _zone_tir_italienne(e, oaip.get("Italie", {}))
     if named:
         parts = []
         for _, z, _ in named:
@@ -1974,8 +2034,10 @@ def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFO
                 "notam": f"{n['series']}{n['number']:04d}/{n['year']}",
                 "code": code,
                 "nom": re.sub(r"\s+", " ", name).strip(),
-                "plancher": re.sub(r"^FL\s*0*(\d+)", r"FL\1", re.sub(r"(\d)\s+FT\b", r"\1FT", lo_.strip())),
-                "plafond": re.sub(r"^FL\s*0*(\d+)", r"FL\1", re.sub(r"(\d)\s+FT\b", r"\1FT", hi_.strip())),
+                "plancher": re.sub(r"^FL\s*0*(\d+)", r"FL\1",
+                                   re.sub(r"^0+(?=\d)", "", re.sub(r"(\d)\s+FT\b", r"\1FT", lo_.strip()))),
+                "plafond": re.sub(r"^FL\s*0*(\d+)", r"FL\1",
+                                  re.sub(r"^0+(?=\d)", "", re.sub(r"(\d)\s+FT\b", r"\1FT", hi_.strip()))),
                 "validite": f"{n['startValidity'][:16]} -> {c_raw[:16]}",
                 "item_d": (n.get("itemD") or "").replace("\n", " "),
                 "actif_ce_jour_utc": " ".join(f"{x:%H%M}-{y:%H%M}" for x, y in act),

@@ -219,6 +219,15 @@ Téléchargées en GeoJSON (cache 7 jours `cache/paysbas_lvnl.json`). LVNL livre
 points) : un contour dont tous les points sont à la même distance du centre (à 20 m près) redevient un cercle
 OpenAir `V X=` / `DC` (34 zones, ex. EHTSA54 : DC 1.06) ; les autres contours sont allégés à ≈360 points. Pour un NOTAM néerlandais, seule cette base est consultée.
 
+## Zones suisses, italiennes et espagnoles
+
+Base **openAIP** (données communautaires, **non officielles**, licence CC BY-NC 4.0) convertie en OpenAir par
+AirspaceConverter (https://alus.it/AirspaceConverter/openAIP/<ch|it|es>_asp.txt, cache 7 jours
+`cache/openaip_<code>.txt`). Zones indexées par identifiant : `LSR10` (Suisse), `LI TSA113`, `LI-D313` (Italie),
+`LED50`, `LETSA31` (Espagne ; les NOTAM écrivent « LETS31 », ramené à « LETSA31 »). Les zones de tir italiennes,
+citées par leur nom (« MIL FIRING AREA /CLOU NEF-W AOSTA/ »), sont cherchées par nom (« CLOU NEF (FIRINGAREA) »).
+Édition actuelle : 15/07/2026, signalée « édition ancienne » ; certaines zones manquent (ex. LI R313).
+
 ## Sites de vol libre (FFVL)
 
 La liste des sites vient du jeu de données officiel « Terrains de pratique de la FFVL » publié chaque nuit sur
