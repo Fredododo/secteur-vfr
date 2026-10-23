@@ -591,7 +591,7 @@ function renderList(){
   $("voirFiltres").onclick=e=>{e.preventDefault(); setTab("affichage");};
   $("list").innerHTML=zs.map((z,i)=>{const p=z.p, c=catColor(p,k=>`var(${k})`);
     return `<button type="button" class="z" data-i="${result.zones.indexOf(z)}"><i style="background:${c}"></i>
-      <div><b>${esc(p.titre||p.nom)}</b><span>${esc(altDisplay(p.plancher))} – ${esc(altDisplay(p.plafond))} · ${z.slots.map(([a,b])=>hm(a)+"-"+hm(b)).join(" ")}Z${z.termine?" · terminé":""}</span></div>
+      <div><b>${esc(p.titre||p.nom)}${p.sous_titre?` · ${esc(p.sous_titre)}`:""}</b><span>${esc(altDisplay(p.plancher))} – ${esc(altDisplay(p.plafond))} · ${z.slots.map(([a,b])=>hm(a)+"-"+hm(b)).join(" ")}Z${z.termine?" · terminé":""}</span></div>
       <em>${z.dist} km/${pad(z.brg,3)}°</em></button>`;}).join("")||`<div class="hint">Aucune zone dans ce secteur pour ce créneau.</div>`;
 }
 $("list").addEventListener("click",e=>{const b=e.target.closest(".z"); if(!b) return; const z=result.zones[+b.dataset.i];
@@ -635,6 +635,11 @@ function oaReleve(){
   for(const p of ps) out.push(...oaBloc(p,""));
   return out.join("\n");
 }
+// « (NOTAM SUP x) » en fin de nom ; le numero du NOTAM n'est pas repete quand il est deja le nom de la zone
+function oaRef(p){
+  const r=[p.notam&&!String(p.nom).startsWith(p.notam)?p.notam:"", p.sup_aip?`SUP ${p.sup_aip}`:""].filter(Boolean).join(" ");
+  return r?` (${r})`:"";
+}
 function oaBloc(p, heures){
   const out=[];
   {
@@ -647,7 +652,7 @@ function oaBloc(p, heures){
     if(p.telephones) out.push(`* Telephone : ${p.telephones}`);
     if(p.item_d) out.push(`* Item D : ${String(p.item_d).slice(0,150)}`);
     // OpenAir extended (Naviter, comme planeur-net) : AC = classe OACI (UNC : non classe), AY = type (R, Q, P)
-    out.push("AC UNC", `AY ${["R","Q","P"].includes(p.classe)?p.classe:"R"}`, `AN ${String(p.nom).slice(0,45)}${heures} (${[p.notam, p.sup_aip?`SUP ${p.sup_aip}`:""].filter(Boolean).join(" ")})`);
+    out.push("AC UNC", `AY ${["R","Q","P"].includes(p.classe)?p.classe:"R"}`, `AN ${String(p.nom).slice(0,45)}${heures}${oaRef(p)}`);
     // premiere frequence : champs OpenAir AF (frequence) et AG (indicatif)
     const fq=String(p.frequences||"").split(" / ")[0].match(/^(.+) (\d{3}\.\d{1,3})$/);
     if(fq) out.push(`AF ${fq[2]}`, `AG ${fq[1]}`);

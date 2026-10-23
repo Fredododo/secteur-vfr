@@ -2191,7 +2191,15 @@ def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFO
                 lo_, hi_ = part["al"] or n_lo or q_lo, part["ah"] or n_hi or q_hi
             else:
                 lo_, hi_ = n_lo or part["al"] or q_lo, n_hi or part["ah"] or q_hi
-            name = part["label"] or (sup.get("titre") if trig and sup.get("titre") else zone_name(n))
+            # Nom : zone d'une base ou d'un SUP -> son nom publie ; trigger NOTAM -> titre du SUP ; NOTAM qui decrit
+            # lui-meme sa zone -> son numero (le lieu, « 'COMMUNE DE MALAY-LE-GRAND' », passe en sous-titre)
+            lieu = ""
+            if part["label"]:
+                name = part["label"]
+            elif trig and sup.get("titre"):
+                name = sup["titre"]
+            else:
+                name, lieu = f"{n['series']}{n['number']:04d}/{n['year']}", zone_name(n)
             if len(parts) > 1 and not part["label"]:
                 name += f" ({k + 1})"
             if zcat != "info" and drones_seulement(e_up):
@@ -2234,7 +2242,7 @@ def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFO
                 "texte": part.get("texte") or (n.get("multiLanguage", {}) or {}).get("itemE") or n.get("itemE", ""),
                 "_pts": part["pts"],
                 "_titre": part.get("titre") or re.sub(r"\s+", " ", name).strip(),
-                "_sous_titre": part.get("sous_titre", ""),
+                "_sous_titre": part.get("sous_titre") or re.sub(r"\s+", " ", unicodedata.normalize("NFKC", lieu)).strip(),
                 "_slots": act,
                 "_jour": day,
                 "_class": openair_class(q["code23"]),
@@ -2436,8 +2444,10 @@ def main():
                 # OpenAir extended (Naviter, comme planeur-net) : AC = classe OACI (UNC : non classe), AY = type
                 f.write(f"AC UNC\nAY {r['_class'] if r['_class'] in ('R', 'Q', 'P') else 'R'}\n")
                 # numero du SUP dans le nom : seule information affichee par XCSoar / XCTrack pour retrouver le SUP
-                ref = " ".join(x for x in (r["notam"], f"SUP {r['sup_aip']}" if r.get("sup_aip") else "") if x)
-                f.write(f"AN {r['nom'][:45]} {r['actif_ce_jour_utc']}Z ({ref})\n")
+                # (le numero du NOTAM n'est pas repete quand il est deja le nom de la zone)
+                ref = " ".join(x for x in ("" if r["nom"].startswith(r["notam"] or "-") else r["notam"],
+                                           f"SUP {r['sup_aip']}" if r.get("sup_aip") else "") if x)
+                f.write(f"AN {r['nom'][:45]} {r['actif_ce_jour_utc']}Z" + (f" ({ref})" if ref else "") + "\n")
                 fq = re.match(r"(.+) (\d{3}\.\d{1,3})", (r.get("frequences") or "").split(" / ")[0])
                 if fq:                                   # premiere frequence : champs OpenAir AF (frequence) et AG (indicatif)
                     f.write(f"AF {fq[2]}\nAG {fq[1]}\n")

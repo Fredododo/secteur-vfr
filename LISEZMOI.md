@@ -200,6 +200,11 @@ L'API interne de la carte AZBA n'est pas utilisée (accès protégé) : pour un 
 Format **OpenAir extended** (spécification Naviter, comme le fichier planeur-net de la FFVP) : `AC UNC`
 (classe OACI : non classé) puis `AY` pour le type (`R` réglementée, `Q` dangereuse, y compris les avertissements W,
 `P` interdite), au lieu de l'ancien `AC R` / `AC Q` / `AC P`.
+Nom des zones : zone d'une base ou d'un SUP → son nom publié ; trigger NOTAM sans nom de zone → titre du SUP ;
+NOTAM qui décrit lui-même sa zone (voltige, aéromodélisme…) → **numéro du NOTAM** (`AN W0240/26 …`), le lieu
+(premier texte entre apostrophes de l'item E, « 'JOIGNY AERODROME' ») en sous-titre sur la page. Le numéro n'est
+alors pas répété en fin de nom.
+
 Pour une zone de SUP AIP, le nom (`AN`) se termine par le NOTAM et le numéro du SUP (« (R0750/26 SUP 042/26) ») —
 XCSoar et XCTrack n'affichent que le nom — et le lien du PDF officiel est en commentaire (le format OpenAir n'a pas
 de champ pour un lien).

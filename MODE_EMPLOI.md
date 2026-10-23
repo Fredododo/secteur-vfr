@@ -79,6 +79,10 @@ Le fichier `.txt` est au format **OpenAir extended** (comme le fichier planeur-n
 (espace non classé) et type `AY R` (réglementée), `AY Q` (dangereuse, zones W et D) ou `AY P` (interdite). Il garde
 les cercles et arcs d'origine ; la première fréquence de la zone est reprise dans les champs `AF`/`AG`.
 
+Une zone décrite par le NOTAM lui-même (voltige, aéromodélisme, parachutage…) porte le **numéro du NOTAM** comme
+nom (ex. « W0240/26 ») ; le lieu (« JOIGNY AERODROME ») est donné à côté dans la liste et la fiche. Les zones
+d'une base ou d'un SUP gardent leur nom publié.
+
 Pour une zone de SUP AIP, le nom de la zone se termine par le numéro du SUP (ex. « (R0750/26 SUP 042/26) »),
 visible dans les infos de la zone de l'instrument ; le lien du PDF officiel est en commentaire dans le fichier. En
 vol, avec du réseau, la fiche de la zone sur la page donne aussi le lien « lire le SUP ».
