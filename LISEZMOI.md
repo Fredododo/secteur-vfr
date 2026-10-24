@@ -260,6 +260,11 @@ son édition du 31/03/2026.
 
 ## SUP AIP non lus
 
+Toutes les rubriques « Limites latérales et verticales » d'un SUP sont lues (un groupe de zones chacune, ex.
+231/26), et toutes ses rubriques « Dates et heures d'activité » (celle qui cite la zone). Noms des zones : une
+ligne de noms coupée en autant de zones que de blocs, ou un nom par ligne suivi de « (ERNIP identification : …) »,
+éventuellement réparti sur plusieurs lignes. Une zone dont le bloc d'horaires ne dit pas « activable » mais dont
+la rubrique commence par « ZRT activables » (avant le premier nom de zone) est activable à ses dates.
 Deux mises en page de PDF sont lues : lignes « Limites latérales » / « Limites verticales » par zone, ou blocs
 « ZRT XXX (ERNIP identification : …) » suivis de leurs coordonnées, avec des limites verticales « SFC / FL 285 »
 propres au bloc ou communes (ex. SUP 094/25). Un SUP en vigueur d'après le listing, qui crée des zones (titre),
@@ -326,7 +331,7 @@ elles exigent un en-tête Referer et sont refusées quand la carte est ouverte p
 - Les créneaux déjà terminés ne sont plus renvoyés par SOFIA : lancé à 10:01Z, le script ne montre plus une zone RTBA active 0730-1000.
 
 - SOFIA ne fournit que les NOTAM à venir : le créneau démarre à l'heure courante si le jour est aujourd'hui ; pas d'historique ; au-delà de ~J+6 la requête échoue. Les NOTAM d'activation sont souvent publiés 48 h (parfois D-4/D-7) avant.
-- Zones SUP AIP : les limites « à l'exclusion de… » ne sont pas soustraites, les tronçons suivant une frontière ou une côte sont tracés en ligne droite (signalé dans la colonne `geometrie`). Horaires du SUP lus : périodes « du … au … », plages (« 0800-1700 », « de … à … », H24, SR/SS ± décalage), jours (« du lundi au vendredi », « sauf samedi »), jours fériés et veilles, heure d'été (« ÉTÉ : -1 HR »), jours sans heures (« activables du lundi au vendredi hors jours fériés » : toute la journée ces jours-là), périodes d'un jour de la semaine à l'autre (« du lundi 10H00 au vendredi 10H00 »), plages d'exclusion retirées des créneaux (« sauf pendant les créneaux horaires suivants : SR – SR plus 02H00, SS moins 02H00 – SS »), tableaux de dates (« MARS 2026 : 24,26 : 0700-1200 », ou une ligne par date avec une colonne par zone, plages collées à l'extraction comprises). Une rédaction non reconnue laisse la zone activable toute la journée. Si un PDF ne se lit pas, retour au cercle de la ligne Q.
+- Zones SUP AIP : les limites « à l'exclusion de… » ne sont pas soustraites, les tronçons suivant une frontière ou une côte sont tracés en ligne droite (signalé dans la colonne `geometrie`). Horaires du SUP lus : périodes « du … au … », plages (« 0800-1700 », « de … à … », H24, SR/SS ± décalage), jours (« du lundi au vendredi », « sauf samedi »), jours fériés et veilles, heure d'été (« ÉTÉ : -1 HR »), jours sans heures (« activables du lundi au vendredi hors jours fériés » : toute la journée ces jours-là), périodes d'un jour de la semaine à l'autre (« du lundi 10H00 au vendredi 10H00 »), plages d'exclusion retirées des créneaux (« sauf pendant les créneaux horaires suivants : SR – SR plus 02H00, SS moins 02H00 – SS »), tableaux de dates (« MARS 2026 : 24,26 : 0700-1200 », ou une ligne par date avec une colonne par zone, plages collées à l'extraction et jours « SPARE » compris), listes de jours (« - Le 12 novembre 2026 de 1300 à 1800 », éventuellement mêlées de périodes « Du … au … »). Quand le listing exclut toutes les périodes du PDF, la zone n'a aucune activité. Une rédaction non reconnue laisse la zone activable toute la journée. Si un PDF ne se lit pas, retour au cercle de la ligne Q.
 - Dépendance : `pip install pypdf` (sans elle, le script fonctionne mais sans géométrie SUP).
 - Items D complexes (`EXC`, plages de mois…) : zone gardée et marquée « horaire à vérifier ».
 - Les NOTAM « info » (suspension, modification) sont listés dans le CSV et la carte, pas dans l'OpenAir.

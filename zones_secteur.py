@@ -419,11 +419,22 @@ def _norm_alt(s):
 def parse_sup_text(text, db):
     """Zones d'un SUP AIP : liste de {nom, pts, al, ah, note}."""
     text = re.sub(r"SUP AIP[^\n]*Date de publication[^\n]*\n|Page \d+/\d+[^\n]*\n", "\n", text)
-    start = re.search(r"LIMITES\s+LAT[ÉE]RALES\s+ET\s+VERTICALES", text, re.I)
-    sect = text[start.end():] if start else text
-    stop = re.search(r"\n\s*(ORGANISMES\s+A\s+CONTACTER|DISPOSITIONS\s+COMPL|ACTIVIT[ÉE]\s*\n|DATES\s+ET\s+HEURES)", sect, re.I)
-    if stop:
-        sect = sect[:stop.start()]
+    # Un SUP peut avoir plusieurs rubriques « Limites laterales et verticales » (ex. 231/26 : un groupe de zones
+    # avant la rubrique d'activite, un autre apres) : chacune est lue
+    debuts = list(re.finditer(r"LIMITES\s+LAT[ÉE]RALES\s+ET\s+VERTICALES", text, re.I))
+    zones = []
+    for k, start in enumerate(debuts or [None]):
+        sect = text[start.end(): debuts[k + 1].start() if k + 1 < len(debuts) else len(text)] if start else text
+        stop = re.search(r"\n\s*(ORGANISMES?\s+A\s+CONTACTER|DISPOSITIONS\s+COMPL|ACTIVIT[ÉE]\s*\n|DATES\s+ET\s+HEURES)",
+                         sect, re.I)
+        if stop:
+            sect = sect[:stop.start()]
+        zones += _parse_sup_section(sect, db)
+    return zones
+
+
+def _parse_sup_section(sect, db):
+    """Zones d'une rubrique « Limites laterales et verticales » d'un SUP."""
     # Evenements dans l'ordre : debut de limites laterales / limites verticales (+ valeur)
     ev = [("LAT", m.start(), m.end()) for m in re.finditer(r"(?im)^[ \t]*limites\s+lat[ée]rales[ \t]*:?[ \t]*$", sect)]
     ev += [("VER", m.start(), m.end()) for m in re.finditer(r"(?im)^[ \t]*limites\s+verticales[ \t]*:?", sect)]
@@ -451,8 +462,18 @@ def parse_sup_text(text, db):
         lines = [l.strip() for l in head.split("\n")
                  if l.strip() and not re.search(r"exclusion|limites|extrait carte|active\.?$|^avec|^est$", l, re.I)]
         names = []
-        if lines:
-            line = lines[-1]
+        # Un nom par ligne, suivi de son identifiant (« ZRT LIMOGEAIR » puis « (ERNIP identification : LFR1VL) »)
+        # (ou noms repartis sur plusieurs lignes : « ZRT LARZAC BRAVO », puis « ZRT SAINT CHRISTOL ALPHA ZRT SAINT
+        # CHRISTOL BRAVO » apres un saut de page)
+        par_ligne = [l for l in lines if re.match(r"(?:ZRT|ZIT|ZDT|ZONE|LF-?[RDP]\s?\d)", l, re.I)]
+        if len(lats) > 1 and len(par_ligne) != len(lats):
+            morceaux = [x.strip() for x in re.split(r"(?<!/)(?=\b(?:ZRT|ZIT|ZDT)\b)", " ".join(par_ligne)) if x.strip()]
+            if len(morceaux) == len(lats):
+                par_ligne = morceaux
+        if lines and len(lats) > 1 and len(par_ligne) == len(lats):
+            names = par_ligne
+        elif lines:
+            line = par_ligne[-1] if par_ligne and len(lats) == 1 else lines[-1]
             if len(lats) > 1:
                 # Plusieurs facons de couper la ligne des noms : on garde celle qui donne autant de noms que de zones
                 names = []
@@ -572,11 +593,17 @@ class SupCache:
         """(premier jour, dernier jour) du SUP d'apres les periodes « du ... au ... » de son PDF, ou None."""
         t = unicodedata.normalize("NFKD", self.texts.get(num, "")).encode("ascii", "ignore").decode().upper()
         ds = []
-        for m in _PERIODE.finditer(re.sub(r"[ \t]+", " ", t)):
+        t = re.sub(r"[ \t]+", " ", t)
+        for m in _PERIODE.finditer(t):
             g = m.groups()
             try:
                 ds.append(dt.date(int(g[2]), MOIS_FR[g[1]], int(g[0])) if g[0] else dt.date(int(g[5]), int(g[4]), int(g[3])))
                 ds.append(dt.date(int(g[9]), MOIS_FR[g[8]], int(g[7])) if g[7] else dt.date(int(g[12]), int(g[11]), int(g[10])))
+            except (ValueError, KeyError):
+                pass
+        for m in list(_LE_DATE.finditer(t)) + list(_TABLEAU_DATES.finditer(t)):    # jours isoles et tableaux
+            try:
+                ds.append(dt.date(int(m[3]), MOIS_FR[m[2]], int(m[1])))
             except (ValueError, KeyError):
                 pass
         return (min(ds), max(ds)) if ds else None
@@ -767,7 +794,11 @@ _TABLEAU = re.compile(r"\b(" + "|".join(MOIS_FR) + r")\s+(\d{4})\s*:?\s*((?:\d{1
 
 # Tableau « DATES | ZRT RAPACE ALPHA | ZRT RAPACE BRAVO » : une ligne par date, puis les plages de chaque colonne
 # (collees a l'extraction du PDF : « 06 OCTOBRE 2026 0600 - 14001600 - 2359 0600 - 14001600 - 2359 »)
-_TABLEAU_DATES = re.compile(r"\b(\d{1,2})(?:ER)?\s+(" + "|".join(MOIS_FR) + r")\s+(\d{4})\s+((?:\d{4}\s*-\s*\d{4}\s*)+)")
+_TABLEAU_DATES = re.compile(r"\b(\d{1,2})(?:ER)?\s+(" + "|".join(MOIS_FR) + r")\s+(\d{4})\s+"
+                            r"((?:\d{4}\s*-\s*\d{4}(?:\s*SPARE)?\s*)+)")    # SPARE : jour de report, garde
+# Liste de jours : « - Le 12 novembre 2026 de 1300 a 1800 », « Le 10 novembre 2026 : 1200-1500 »
+_LE_DATE = re.compile(r"\bLE\s+(\d{1,2})(?:ER)?\s+(" + "|".join(MOIS_FR) + r")\s+(\d{4})\s*:?\s*(?:DE\s+)?"
+                      r"(\d{2}[H:]?\d{2})\s*(?:A|-)\s*(\d{2}[H:]?\d{2})")
 
 
 def _tableau_dates(texte, zone, noms):
@@ -808,6 +839,12 @@ def _tableau_jours(texte, zone="", noms=()):
     if not jours:
         jours = _tableau_dates(texte, zone, noms)
     if not jours:
+        for m in _LE_DATE.finditer(texte):
+            try:
+                jours.setdefault(dt.date(int(m[3]), MOIS_FR[m[2]], int(m[1])), []).append((_heure(m[4]), _heure(m[5])))
+            except ValueError:
+                pass
+    if not jours:
         return None
     d0 = d1 = None
     w = _fold(zone).split()
@@ -819,7 +856,13 @@ def _tableau_jours(texte, zone="", noms=()):
             d1 = dt.date(int(g[9]), MOIS_FR[g[8]], int(g[7])) if g[7] else dt.date(int(g[12]), int(g[11]), int(g[10]))
     regles = [(d, d, set(range(7)), pl, False, (None, None), False, False)
               for d, pl in sorted(jours.items()) if not d0 or d0 <= d <= d1]
-    return regles or [(d, d, set(range(7)), pl, False, (None, None), False, False) for d, pl in sorted(jours.items())]
+    regles = regles or [(d, d, set(range(7)), pl, False, (None, None), False, False) for d, pl in sorted(jours.items())]
+    # Jours « Le 02 decembre 2026 de 0800 a 2000 » melanges a des periodes « Du 04 decembre 2026 au 09 decembre 2026
+    # de 0800 a 2000 » : les periodes sont lues aussi
+    reste = _LE_DATE.sub(" ", texte)
+    if _LE_DATE.search(texte) and _PERIODE.search(reste):
+        regles += _horaires_fixes(reste) or []
+    return regles
 
 
 def bornes_listing(info):
@@ -859,6 +902,10 @@ def caler_sur_listing(sa, info, pdf=None):
             if d0 > d1:
                 continue
         regles.append((d0, d1) + r[2:5] + (tuple(h),) + r[6:])
+    if not regles:
+        # toutes les periodes du PDF sont hors de la validite du listing : aucune activite (et non « toute la
+        # journee », sens d'une liste de regles vide)
+        regles = [(du, au, set(), [], False, (None, None), False, False)]
     sa.regles = regles
 
 
@@ -996,11 +1043,15 @@ def sup_activite(text, zone, noms):
     """Lit la rubrique « Dates et heures d'activite » du SUP et renvoie le mode d'activation de `zone`."""
     t = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().upper()
     t = re.sub(r"SUP AIP[^\n]*DATE DE PUBLICATION[^\n]*\n|PAGE \d+/\d+[^\n]*\n", "\n", t)
-    m = re.search(r"DATES?\s+ET\s+HEURES?\s+D.?\s?ACTIVITES?(.*?)(?=\n\s*(?:INFORMATION|GESTIONNAIRE|STATUT|CONDITIONS|"
-                  r"SERVICES|LIMITES|ORGANISMES|DISPOSITIONS)\b|\Z)", t, re.S)
-    if not m:
+    rubriques = [x.group(1) for x in re.finditer(
+        r"DATES?\s+ET\s+HEURES?\s+D.?\s?ACTIVITES?(.*?)(?=\n\s*(?:INFORMATION|GESTIONNAIRE|STATUT|CONDITIONS|"
+        r"SERVICES|LIMITES|ORGANISMES|DISPOSITIONS)\b|\Z)", t, re.S)]
+    if not rubriques:
         return SupActivite("verifier")
-    sect = re.sub(r"[ \t]+", " ", m.group(1))
+    # Plusieurs rubriques (un groupe de zones chacune, ex. 231/26) : celle qui cite la zone, sinon la premiere
+    nz = r"\W+".join(map(re.escape, _fold(zone).split()))
+    sect = next((r for r in rubriques if nz and re.search(r"(?<![A-Z0-9])" + nz + r"(?![A-Z0-9])", r)), rubriques[0])
+    sect = re.sub(r"[ \t]+", " ", sect)
     # Bloc propre a la zone : texte entre son nom et le nom de zone suivant (sinon toute la rubrique).
     # Les noms sont cherches mot a mot dans le texte d'origine (la ponctuation sert aux horaires).
     mots = lambda s: _fold(s).split()  # noqa
@@ -1027,9 +1078,16 @@ def sup_activite(text, zone, noms):
     texte = bloc if bloc and re.search(r"\d|H24", bloc) else sect
     general = sect
     activable = lambda s: any(k in s for k in ("ACTIVABLE", "ACTIVATION", "ACTIVITE REELLE"))  # noqa
-    if not activable(texte) and activable(general) and not _horaires_fixes(texte):
-        texte = general          # « ZRT A et B activables : » puis un tableau de dates par zone
-    if activable(texte):
+    preambule = False
+    entete = general[:pos[0][0]] if pos else ""      # texte avant le premier nom de zone
+    if not activable(texte) and activable(general):
+        if "ACTIVABLE" in entete and (_tableau_jours(texte, zone, noms) or _horaires_fixes(texte)):
+            # « ZRT activables. » en tete de rubrique, puis les dates propres a chaque zone (tableau « Dates | ZRT A |
+            # ZRT B », « - Du 01 decembre 2026 a 0700 au 02 decembre 2026 a 1600 ») : activables a ces dates
+            preambule = True
+        elif not _horaires_fixes(texte):
+            texte = general      # « ZRT A et B activables : » puis un tableau de dates par zone
+    if activable(texte) or preambule:
         if "NOTAM" in texte or ("NOTAM" in general and "PROTOCOLE" not in general):
             return SupActivite("notam", texte=texte)
         # Activable sans NOTAM (H24, preavis, protocole...) : activite reelle connue par radio ou telephone, pendant
