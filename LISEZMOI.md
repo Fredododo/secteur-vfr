@@ -211,6 +211,11 @@ L'API interne de la carte AZBA n'est pas utilisée (accès protégé) : pour un 
 Format **OpenAir extended** (spécification Naviter, comme le fichier planeur-net de la FFVP) : `AC UNC`
 (classe OACI : non classé) puis `AY` pour le type (`R` réglementée, `Q` dangereuse, y compris les avertissements W,
 `P` interdite), au lieu de l'ancien `AC R` / `AC Q` / `AC P`.
+Fréquences : celles du SUP (rubrique « Information des usagers »), sinon celles écrites dans le NOTAM (« SEINE APP
+118.050MHZ », « LONDON INFO ON FREQ 124.600MHZ », « LFMM ACC FREQUENCES 126.155MHZ »). La première est mise dans le
+nom, juste après la désignation (`AN ZRT DSV ROMORANTIN ALPHA 127.815 …` : XCTrack n'affiche que `AN`), et en
+`AF` / `AG`.
+
 Nom des zones : zone d'une base ou d'un SUP → son nom publié ; trigger NOTAM sans nom de zone → titre du SUP ;
 NOTAM qui décrit lui-même sa zone (voltige, aéromodélisme…) → **numéro du NOTAM** (`AN W0240/26 …`), le lieu
 (premier texte entre apostrophes de l'item E, « 'JOIGNY AERODROME' ») en sous-titre sur la page. Le numéro n'est

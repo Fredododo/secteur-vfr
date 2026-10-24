@@ -81,7 +81,9 @@ privée ou après effacement des données du site, on repart des réglages par d
 
 Le fichier `.txt` est au format **OpenAir extended** (comme le fichier planeur-net de la FFVP) : classe `AC UNC`
 (espace non classé) et type `AY R` (réglementée), `AY Q` (dangereuse, zones W et D) ou `AY P` (interdite). Il garde
-les cercles et arcs d'origine ; la première fréquence de la zone est reprise dans les champs `AF`/`AG`.
+les cercles et arcs d'origine. La première fréquence de la zone (celle du SUP, ou à défaut celle écrite dans le
+NOTAM) est mise **dans le nom, juste après la désignation** (« ZRT DSV ROMORANTIN ALPHA 127.815 … ») pour les
+instruments qui n'affichent que le nom, comme XCTrack, et dans les champs `AF` (fréquence) / `AG` (indicatif).
 
 Une zone décrite par le NOTAM lui-même (voltige, aéromodélisme, parachutage…) porte le **numéro du NOTAM** comme
 nom (ex. « W0240/26 ») ; le lieu (« JOIGNY AERODROME ») est donné à côté dans la liste et la fiche. Les zones

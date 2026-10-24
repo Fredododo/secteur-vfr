@@ -976,6 +976,27 @@ _RUBRIQUES = (r"INFORMATIONS?\s+DES\s+USAGERS|GESTIONNAIRES?|STATUT|CONDITIONS\s
               r"DATES?\s+ET\s+HEURES|ACTIVIT[ÉE]\s*\n|OBJET\s*:")
 _FREQ_RE = re.compile(r"([A-ZÀ-Ü][A-ZÀ-Ü'’ \-]{1,30}?\s(?:INFO|APP|TWR|AFIS|SIV|CTL|CONTROL|CONTR[ÔO]LE|APPROCHE|TOUR|"
                       r"INFORMATION|RADAR|SOL|GND|ATIS|TRANSIT|DIRECTEUR))\s*:?\s*(\d{3}[.,]\d{1,3})\s*MHZ", re.I)
+# Frequence dans un NOTAM : « SEINE APP 118.050MHZ », « LONDON INFO ON FREQ 124.600MHZ », « HEATHROW RADAR ON
+# 125.625MHZ », « LFMM ACC FREQUENCES 126.155MHZ »
+_FREQ_NOTAM_RE = re.compile(r"([A-Z][A-Z'’ /\-]{1,30}?\s(?:INFO|APP|TWR|AFIS|SIV|CTL|CONTROL|CONTROLE|APPROCHE|TOUR|"
+                            r"INFORMATION|RADAR|SOL|GND|ATIS|TRANSIT|DIRECTEUR|ACC|RADIO|FIS))"
+                            r"(?:\s*:?\s*|\s+(?:ON|SUR)\s+(?:FREQ(?:UENCY)?\s+)?|\s+FREQ(?:UENC(?:Y|ES?))?\s*:?\s*)"
+                            r"(\d{3}[.,]\d{1,3})\s*MHZ")
+
+
+def notam_freqs(n):
+    """[(indicatif, frequence)] ecrits dans le texte d'un NOTAM (« CONTACT RADIO OBLIGATOIRE AVEC SEINE APP
+    118.050MHZ », « LILLE INFO :134.825 MHZ »), au plus 6."""
+    out = []
+    for txt in ((n.get("itemE") or ""), ((n.get("multiLanguage") or {}).get("itemE") or "")):
+        for m in _FREQ_NOTAM_RE.finditer(txt.upper()):
+            nom, f = _indicatif(m[1]), m[2].replace(",", ".")
+            nom = re.sub(r"^.*\b(?:CONNUES?|KNOWN)\s+(?:DE|BY|FROM|AUPRES\s+DE)\s+", "", nom)
+            if f not in [b for _, b in out]:
+                out.append((nom, f))
+    return out[:6]
+
+
 _TEL_RE = re.compile(r"(?:\+33\s?\(?0?\)?\s?|\b0)[1-9](?:[\s.]?\d{2}){4}\b")
 
 
@@ -2458,6 +2479,8 @@ def build_zones(notams, ctx, day, w0, w1, q_start, codes="R,W", plafond_fl=PLAFO
             # Informations pratiques du SUP (frequences, gestionnaire, telephones, penetration)
             inf = sc.infos(ref) if (sc and ref and ref in sups) else {}
             freqs = " / ".join(f"{a} {f}" for a, f in inf.get("freqs", []))
+            if not freqs:                        # pas de SUP lu : frequences ecrites dans le NOTAM (« SEINE APP 118.050MHZ »)
+                freqs = " / ".join(f"{a} {f}" for a, f in notam_freqs(n))
             if part.get("alt_sup"):
                 lo_, hi_ = part["al"] or n_lo or q_lo, part["ah"] or n_hi or q_hi
             else:
@@ -2718,10 +2741,12 @@ def main():
                 # (le numero du NOTAM n'est pas repete quand il est deja le nom de la zone)
                 ref = " ".join(x for x in ("" if r["nom"].startswith(r["notam"] or "-") else r["notam"],
                                            f"SUP {r['sup_aip']}" if r.get("sup_aip") else "") if x)
-                f.write(f"AN {r['nom'][:45]} {r['actif_ce_jour_utc']}Z" + (f" ({ref})" if ref else "") + "\n")
-                fq = re.match(r"(.+) (\d{3}\.\d{1,3})", (r.get("frequences") or "").split(" / ")[0])
-                if fq:                                   # premiere frequence : champs OpenAir AF (frequence) et AG (indicatif)
-                    f.write(f"AF {fq[2]}\nAG {fq[1]}\n")
+                # premiere frequence : dans le nom (seule ligne affichee par XCTrack) et en AF (frequence) / AG (indicatif)
+                fq = re.match(r"(?:(.+) )?(\d{3}\.\d{1,3})$", (r.get("frequences") or "").split(" / ")[0])
+                f.write(f"AN {r['nom'][:45]}" + (f" {fq[2]}" if fq else "") + f" {r['actif_ce_jour_utc']}Z"
+                        + (f" ({ref})" if ref else "") + "\n")
+                if fq:
+                    f.write(f"AF {fq[2]}\n" + (f"AG {fq[1]}\n" if fq[1] else ""))
                 # Horaires d'activation (OpenAir extended, champ AA, UTC) : creneaux du jour, tries et fusionnes
                 for x, y in merge_slots(r["_slots"]):
                     f.write(f"AA {x:%Y-%m-%dT%H:%M}Z/{y:%Y-%m-%dT%H:%M}Z\n")
