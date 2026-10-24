@@ -264,7 +264,9 @@ Toutes les rubriques « Limites latérales et verticales » d'un SUP sont lues (
 231/26), et toutes ses rubriques « Dates et heures d'activité » (celle qui cite la zone). Noms des zones : une
 ligne de noms coupée en autant de zones que de blocs, ou un nom par ligne suivi de « (ERNIP identification : …) »,
 éventuellement réparti sur plusieurs lignes. Une zone dont le bloc d'horaires ne dit pas « activable » mais dont
-la rubrique commence par « ZRT activables » (avant le premier nom de zone) est activable à ses dates.
+la rubrique commence par « ZRT activables » (avant le premier nom de zone) est activable à ses dates. Les
+restrictions de jours écrites dans ce préambule (« Activable H24 sauf week-end et jours fériés ») s'appliquent aux
+périodes des zones qui n'en ont pas (pas aux jours précis d'un tableau ou d'une liste « Le 02 décembre »).
 Deux mises en page de PDF sont lues : lignes « Limites latérales » / « Limites verticales » par zone, ou blocs
 « ZRT XXX (ERNIP identification : …) » suivis de leurs coordonnées, avec des limites verticales « SFC / FL 285 »
 propres au bloc ou communes (ex. SUP 094/25). Un SUP en vigueur d'après le listing, qui crée des zones (titre),

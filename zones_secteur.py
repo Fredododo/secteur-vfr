@@ -682,8 +682,8 @@ def _dst(d):
 
 def _jours(txt):
     """Jours de la semaine autorises (ensemble 0-6) d'apres « tous les jours sauf … », « uniquement le … »,
-    « du lundi au vendredi », « LUN-VEN »."""
-    t = txt
+    « du lundi au vendredi », « LUN-VEN », « sauf week-end »."""
+    t = re.sub(r"\bWEEK[\s-]?ENDS?\b", "SAMEDI ET DIMANCHE", txt)
     m = re.search(r"DU\s+(\w+)\s+AU\s+(\w+)", t) or re.search(r"\b(LUN|MAR|MER|JEU|VEN|SAM|DIM)\s*-\s*(LUN|MAR|MER|JEU|VEN|SAM|DIM)\b", t)
     if m and m[1] in JOURS_FR and m[2] in JOURS_FR:
         a, b = JOURS_FR[m[1]], JOURS_FR[m[2]]
@@ -1039,6 +1039,24 @@ def sup_infos(text):
             "tels": tels[:4], "penetration": pen}
 
 
+def _avec_entete(regles, entete):
+    """Restrictions de jours ecrites en tete de rubrique, avant le premier nom de zone (« Activable H24 sauf week-end
+    et jours feries »), appliquees aux regles des zones qui n'en ont pas. Les jours precis (tableaux, « Le 02
+    decembre ») ne sont pas touches."""
+    if not regles or not entete.strip():
+        return regles
+    jours, (ferie, veille) = _jours(entete), _feries(entete)
+    if len(jours) == 7 and not ferie and not veille:
+        return regles
+    out = []
+    for r in regles:
+        if r[0] and r[0] == r[1]:
+            out.append(r)
+            continue
+        out.append(r[:2] + (r[2] & jours if len(r[2]) == 7 else r[2],) + r[3:6] + (r[6] or ferie, r[7] or veille) + r[8:])
+    return out
+
+
 def sup_activite(text, zone, noms):
     """Lit la rubrique « Dates et heures d'activite » du SUP et renvoie le mode d'activation de `zone`."""
     t = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().upper()
@@ -1093,10 +1111,10 @@ def sup_activite(text, zone, noms):
         # Activable sans NOTAM (H24, preavis, protocole...) : activite reelle connue par radio ou telephone, pendant
         # les creneaux d'activabilite du SUP quand il en donne (plages d'exclusion et periodes « du lundi 10H00 au
         # vendredi 10H00 » comprises) ; sinon la zone reste activable toute la journee.
-        return SupActivite("radio", _tableau_jours(texte, zone, noms) or _horaires_fixes(texte), texte)
+        return SupActivite("radio", _avec_entete(_tableau_jours(texte, zone, noms) or _horaires_fixes(texte), entete), texte)
     if "NOTAM" in texte:
         return SupActivite("notam", texte=texte)
-    regles = _tableau_jours(texte, zone, noms) or _horaires_fixes(texte)
+    regles = _avec_entete(_tableau_jours(texte, zone, noms) or _horaires_fixes(texte), entete)
     if regles:
         return SupActivite("horaires", regles, texte)
     return SupActivite("verifier", texte=texte)
